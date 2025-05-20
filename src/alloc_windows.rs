@@ -1,25 +1,29 @@
 
 
-struct AllocLock {
-
+#[repr(C)]
+struct AllocLock {	
 }
 
+#[allow(dead_code)]
 impl AllocLock {
-	fn new() -> Self {
-		Self{}
+	fn new() -> *mut AllocLock {
+		let retv :*mut AllocLock = null_mut();
+		retv
 	}
 
 	fn lock(&mut self) {
-
+		
 	}
 
 	fn unlock(&mut self) {
 
 	}
 
-	fn free_mem(retv :*const AllocLock) {
-		if retv != std::mem::null_ptr() {
-			libc::free(retv);
+	fn free_mem(retv :*mut AllocLock) {
+		unsafe {
+			if retv != null_mut() {
+				libc::free(retv as *mut libc::c_void);
+			}
 		}
 		return;
 	}
