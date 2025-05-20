@@ -11,11 +11,11 @@ impl AllocLock {
 		retv
 	}
 
-	fn lock(&mut self) {
+	fn lock(&self) {
 
 	}
 
-	fn unlock(&mut self) {
+	fn unlock(&self) {
 
 	}
 

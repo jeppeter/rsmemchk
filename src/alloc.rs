@@ -138,11 +138,34 @@ impl StackCallAlloc {
 }
 
 
-
+#[allow(unsafe_op_in_unsafe_fn)]
 unsafe impl GlobalAlloc for StackCallAlloc {
-    unsafe fn alloc(&self, _layout: Layout) -> *mut u8 {
-    	let ptr :*mut u8 = null_mut();
-    	ptr
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+    	let ptr :*mut libc::c_void ;
+    	let retptr :*mut u8;
+    	let mut addr :u64;
+    	let mut allsize :usize;
+    	allsize = layout.size();
+    	if layout.align() > 0 {
+    		allsize += layout.align() as usize - 1;	
+    	}
+    	
+    	ptr = libc::malloc(allsize);
+    	if ptr == null_mut() {
+    		return null_mut();
+    	}
+
+    	addr = ptr as u64;
+    	if layout.align() > 1 {
+	    	addr += layout.align() as u64 - 1;
+	    	addr &= !(layout.align() as u64 - 1);
+    	}
+    	retptr = addr as *mut u8;
+    	(*self.lock).lock();
+
+    	(*self.lock).unlock();
+
+    	retptr
     }
     unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
     }
