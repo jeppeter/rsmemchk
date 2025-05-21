@@ -38,6 +38,7 @@ unsafe fn _get_stack_call(skip :usize,pv :*mut * mut libc::c_void,bksize :usize)
 			(*pv.wrapping_add(i-SKIP_WIN_BKSIZE-skip)) = *realbacks.wrapping_add(i);
 		}
 	}
+	libc::free(realbacks as *mut libc::c_void);
 
 	return retv;
 }

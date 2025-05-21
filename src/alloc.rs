@@ -9,6 +9,60 @@ include!("alloc_windows.rs");
 #[cfg(target_os = "linux")]
 include!("alloc_linux.rs");
 
+
+#[allow(unsafe_op_in_unsafe_fn)]
+unsafe fn _write_str(s :&str) {
+	let _ptr :*const u8 = s.as_bytes().as_ptr();
+	libc::write(2,_ptr as *const libc::c_void,s.len() as u32);
+}
+
+#[allow(unused_mut)]
+#[allow(unsafe_op_in_unsafe_fn)]
+unsafe fn _write_val(val :u64, ishex :bool) {
+	let mut cbuf :[u8;32] = [0;32];
+	let mut clen :usize = 0;
+	let mut obuf :[u8;32] = [0;32];
+	let mut cval :u64 = val;
+
+	if ishex {
+		while cval > 0 {
+			let curval :u8 = (cval & 0xf) as u8;
+			if  curval <= 9 {
+				cbuf[clen] = b'0' + curval;
+			} else {
+				cbuf[clen] = b'a' + (curval - 10);
+			}
+			clen += 1;
+			cval >>= 4;
+		}
+
+		cbuf[clen] = b'x';
+		clen += 1;
+		cbuf[clen] = b'0';
+		clen += 1
+	} else {
+		while cval > 0 {
+			let curval :u8 = (cval % 10) as u8;
+			cbuf[clen] = b'0' + curval;
+			clen += 1;
+			cval = cval / 10;
+		}
+	}
+
+	if clen == 0 {
+		obuf[0] = b'0';
+		clen += 1;
+	} else {
+		for i in 0..clen {
+			obuf[i] = cbuf[clen - i-1];
+		}
+	}
+	let _ptr :*const u8 = obuf.as_ptr();
+	libc::write(2,_ptr as *const libc::c_void,clen as u32);
+	return;
+}
+
+
 #[repr(C)]
 struct MemoryList {
 	realptr :*mut libc::c_void,
@@ -17,6 +71,7 @@ struct MemoryList {
 	callstack :*mut *const libc::c_void,
 	callsize :usize,
 }
+
 
 #[allow(dead_code)]
 #[allow(unsafe_op_in_unsafe_fn)]
@@ -78,11 +133,19 @@ impl MemoryList {
 	}
 }
 
+//const TRACE_LEVEL :i32 = 40;
+const DEBUG_LEVEL :i32 = 30;
+//const INFO_LEVEL :i32 = 20;
+//const WARN_LEVEL :i32 = 10;
+const ERROR_LEVEL:i32 = 0;
+
+
 #[repr(C)]
 pub struct StackCallAlloc {	
 	lock : *mut AllocLock,
 	memlist :*mut *mut MemoryList,
 	memsize :usize,
+	loglvl : i32,
 }
 
 const BACK_MEM_SIZE :usize = 4;
@@ -116,6 +179,40 @@ impl StackCallAlloc {
 
 	fn _hash_value(&self, val :u64) -> usize {
 		return (val % self.memsize as u64) as usize;
+	}
+
+	fn _debug_write_str(&self,s :&str) {
+		if self.loglvl >= DEBUG_LEVEL {
+			unsafe {
+				_write_str(s);	
+			}
+			
+		}		
+	}
+
+	fn _debug_write_val(&self, val :u64 , ishex:bool) {
+		if self.loglvl >= DEBUG_LEVEL {
+			unsafe {
+				_write_val(val,ishex);	
+			}			
+		}
+	}
+
+	fn _error_write_str(&self, s:&str) {
+		if self.loglvl >= ERROR_LEVEL {
+			unsafe {
+				_write_str(s);	
+			}
+			
+		}
+	}
+
+	fn _error_write_val(&self, val :u64, ishex :bool) {
+		if self.loglvl >= ERROR_LEVEL {
+			unsafe {
+				_write_val(val,ishex);	
+			}			
+		}
 	}
 
 	unsafe fn _dealloc_inner(&self, ptr :*mut u8, _layout :Layout) -> i32{
@@ -169,15 +266,35 @@ impl StackCallAlloc {
 			libc::free(backs as *mut libc::c_void);
 			return -1;
 		}
+		self._debug_write_str("[");
+		self._debug_write_str(file!());
+		self._debug_write_str(":");
+		self._debug_write_val(line!() as u64, false);
+		self._debug_write_str("]:");
+		self._debug_write_str("alignptr [");
+		self._debug_write_val(alignptr as u64, true);
+		self._debug_write_str("] realptr [");
+		self._debug_write_val(realptr as u64, true);
+		self._debug_write_str("] with backtrace [");
+		for i in 0..BACK_MEM_SIZE {
+			if i > 0 {
+				self._debug_write_str(",");
+			}
+			self._debug_write_val(*backs.wrapping_add(i) as u64, true);
+		}
+		self._debug_write_str("]\n");
+
 
 		let meml :*mut MemoryList = MemoryList::new(backs as *mut *const libc::c_void,retv as usize);
+		libc::free(backs as *mut libc::c_void);		
 		if meml == null_mut() {
-			libc::free(backs as *mut libc::c_void);
 			return -1;
 		}
 
+
 		(*meml).alignptr = alignptr;
 		(*meml).realptr = realptr;
+
 
 		let hashval = self._hash_value( alignptr as u64);
 		let prev :*mut MemoryList = *self.memlist.wrapping_add(hashval);
@@ -192,6 +309,7 @@ impl StackCallAlloc {
 
 	pub unsafe fn new(stacksize :usize) -> *mut StackCallAlloc {
 		let retv :*mut StackCallAlloc = libc::malloc(size_of::<StackCallAlloc>()) as *mut StackCallAlloc;
+		let retstr :*mut libc::c_char;
 		if retv == null_mut() {
 			return retv;
 		}
@@ -202,6 +320,11 @@ impl StackCallAlloc {
 		if (*retv).lock == null_mut() {
 			Self::free_mem(retv);
 			return null_mut();
+		}
+		(*retv).loglvl = 0;
+		retstr = libc::getenv("RSMALLOC_LOGLEVEL".as_bytes().as_ptr() as *const i8);
+		if retstr != null_mut() {
+			(*retv).loglvl = libc::atoi(retstr);
 		}
 		(*retv).memsize = stacksize;
 		(*retv).memlist = libc::malloc(size_of::<*mut MemoryList>() * stacksize) as *mut *mut MemoryList;
