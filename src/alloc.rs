@@ -13,7 +13,10 @@ include!("alloc_linux.rs");
 #[allow(unsafe_op_in_unsafe_fn)]
 unsafe fn _write_str(s :&str) {
 	let _ptr :*const u8 = s.as_bytes().as_ptr();
-	libc::write(2,_ptr as *const libc::c_void,s.len() as u32);
+	#[cfg(target_os = "linux")]
+	let _ = libc::write(2,_ptr as *const libc::c_void,s.len() as usize);
+	#[cfg(target_os = "windows")]
+	let _ = libc::write(2,_ptr as *const libc::c_void,s.len() as u32);
 }
 
 #[allow(unused_mut)]
@@ -58,6 +61,12 @@ unsafe fn _write_val(val :u64, ishex :bool) {
 		}
 	}
 	let _ptr :*const u8 = obuf.as_ptr();
+
+	#[cfg(target_os = "linux")]
+	libc::write(2,_ptr as *const libc::c_void,clen as usize);
+
+
+	#[cfg(target_os = "windows")]
 	libc::write(2,_ptr as *const libc::c_void,clen as u32);
 	return;
 }
@@ -238,17 +247,19 @@ impl StackCallAlloc {
 				}
 			}
 
-			if pprev != null_mut() {
-				(*pprev).next = pnext;
-			} else {
-				(*self.memlist.wrapping_add(iv)) = pnext;
-			}
+			if retv != 0 {
+				if pprev != null_mut() {
+					(*pprev).next = pnext;
+				} else {
+					(*self.memlist.wrapping_add(iv)) = pnext;
+				}
 
-			if pcur != null_mut() {
-				(*pcur).next = null_mut();
-				libc::free((*pcur).realptr);
-				(*pcur).realptr = null_mut();
-				MemoryList::free_mem(pcur);
+				if pcur != null_mut() {
+					(*pcur).next = null_mut();
+					libc::free((*pcur).realptr);
+					(*pcur).realptr = null_mut();
+					MemoryList::free_mem(pcur);
+				}				
 			}
 		}
 		return retv;
