@@ -1,6 +1,47 @@
 
 use winapi::um::minwinbase::{CRITICAL_SECTION};
 use winapi::um::synchapi::{InitializeCriticalSection,EnterCriticalSection,LeaveCriticalSection};
+use winapi::um::winnt::{RtlCaptureStackBackTrace};
+use winapi::shared::minwindef::{ULONG,WORD};
+
+const SKIP_WIN_BKSIZE :usize = 1;
+
+#[allow(unsafe_op_in_unsafe_fn)]
+unsafe fn _get_stack_call(skip :usize,pv :*mut * mut libc::c_void,bksize :usize) -> i32 {
+	let mut realbacks :*mut *mut libc::c_void = null_mut();
+	let mut n :usize = 4;
+	let mut retv :i32 = 0;
+	let mut sret :WORD;
+	let mut nret :ULONG;
+
+	loop {
+		if realbacks != null_mut() {
+			libc::free(realbacks as *mut libc::c_void);
+		}
+		realbacks = libc::malloc(size_of::<*mut libc::c_void>() * n) as *mut *mut libc::c_void;
+		if realbacks == null_mut() {
+			/*for error*/
+			return -1;
+		}
+		nret = 0;
+		let _ptr :*mut ULONG = &mut nret;
+		sret = RtlCaptureStackBackTrace(0,n as u32,realbacks as *mut *mut winapi::ctypes::c_void,_ptr);
+		if (sret as usize) < n {
+			break;
+		}
+		n <<= 1;
+	}
+
+	for i in SKIP_WIN_BKSIZE..n {
+		if (i-SKIP_WIN_BKSIZE) >= skip && (i-SKIP_WIN_BKSIZE-skip) < bksize {
+			retv += 1;
+			(*pv.wrapping_add(i-SKIP_WIN_BKSIZE-skip)) = *realbacks.wrapping_add(i);
+		}
+	}
+
+	return retv;
+}
+
 
 #[repr(C)]
 struct AllocLock {	

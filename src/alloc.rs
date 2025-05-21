@@ -36,7 +36,7 @@ impl MemoryList {
 		return;
 	}
 
-	unsafe fn new(stck :&[*const libc::c_void]) -> *mut MemoryList {
+	unsafe fn new(stck :*mut *const libc::c_void, stksize :usize) -> *mut MemoryList {
 		let retv :*mut MemoryList;
 		retv = libc::malloc(size_of::<MemoryList>()) as *mut MemoryList;
 		if retv == null_mut() {
@@ -46,13 +46,13 @@ impl MemoryList {
 		(*retv).realptr = null_mut();
 		(*retv).alignptr =null_mut();
 		(*retv).next = null_mut();
-		(*retv).callsize = stck.len();
+		(*retv).callsize = stksize;
 		(*retv).callstack = libc::malloc(size_of::<*const libc::c_void>() * (*retv).callsize) as *mut *const libc::c_void ;
 		if (*retv).callstack == null_mut() {
 			MemoryList::free_mem(retv);
 			return null_mut();
 		}
-		libc::memcpy((*retv).callstack as *mut libc::c_void, stck.as_ptr() as *const libc::c_void,size_of::<*const libc::c_void>() * (*retv).callsize);
+		libc::memcpy((*retv).callstack as *mut libc::c_void, stck as *const libc::c_void,size_of::<*const libc::c_void>() * (*retv).callsize);
 		return retv;
 	}
 
@@ -85,6 +85,8 @@ pub struct StackCallAlloc {
 	memsize :usize,
 }
 
+const BACK_MEM_SIZE :usize = 4;
+
 #[allow(dead_code)]
 #[allow(unsafe_op_in_unsafe_fn)]
 impl StackCallAlloc {
@@ -109,8 +111,83 @@ impl StackCallAlloc {
 			AllocLock::free_mem((&(*ptr)).lock);
 			(*ptr).lock = null_mut();
 		}
+		return;
+	}
 
+	fn _hash_value(&self, val :u64) -> usize {
+		return (val % self.memsize as u64) as usize;
+	}
 
+	unsafe fn _dealloc_inner(&self, ptr :*mut u8, _layout :Layout) -> i32{
+		let iv :usize = self._hash_value(ptr as u64);
+		let meml :*mut MemoryList = (*self.memlist.wrapping_add(iv)) as *mut MemoryList;
+		let mut retv :i32 = 0;
+		let mut pcur :*mut MemoryList;
+		let mut pnext :*mut MemoryList;
+		let mut pprev :*mut MemoryList = null_mut();
+		if meml != null_mut() {
+			/*now to search for the value*/
+			pcur = meml;
+			pnext = (*pcur).next;
+			while pcur != null_mut() {
+				if (*pcur).alignptr == ptr {
+					retv = 1;
+					break;
+				}
+				pprev = pcur;
+				pcur = pnext;
+				if pnext != null_mut() {
+					pnext = (*pnext).next;
+				}
+			}
+
+			if pprev != null_mut() {
+				(*pprev).next = pnext;
+			} else {
+				(*self.memlist.wrapping_add(iv)) = pnext;
+			}
+
+			if pcur != null_mut() {
+				(*pcur).next = null_mut();
+				libc::free((*pcur).realptr);
+				(*pcur).realptr = null_mut();
+				MemoryList::free_mem(pcur);
+			}
+		}
+		return retv;
+	}
+
+	unsafe fn _alloc_inner(&self, realptr :*mut libc::c_void, alignptr :*mut u8 ) -> i32 {
+		let retv :i32;
+		let backs :*mut *mut libc::c_void = libc::malloc(size_of::<*mut libc::c_void>() * BACK_MEM_SIZE) as *mut *mut libc::c_void;
+		if backs == null_mut() {
+			return -1;
+		}
+
+		retv = _get_stack_call(0,backs,BACK_MEM_SIZE);
+		if retv < 0 {
+			libc::free(backs as *mut libc::c_void);
+			return -1;
+		}
+
+		let meml :*mut MemoryList = MemoryList::new(backs as *mut *const libc::c_void,retv as usize);
+		if meml == null_mut() {
+			libc::free(backs as *mut libc::c_void);
+			return -1;
+		}
+
+		(*meml).alignptr = alignptr;
+		(*meml).realptr = realptr;
+
+		let hashval = self._hash_value( alignptr as u64);
+		let prev :*mut MemoryList = *self.memlist.wrapping_add(hashval);
+		if prev == null_mut() {
+			*self.memlist.wrapping_add(hashval) = meml;
+		} else {
+			(*meml).next = prev;
+			*self.memlist.wrapping_add(hashval) = meml;
+		}
+		return 1;
 	}
 
 	pub unsafe fn new(stacksize :usize) -> *mut StackCallAlloc {
@@ -132,7 +209,6 @@ impl StackCallAlloc {
 			Self::free_mem(retv);
 			return null_mut();
 		}
-
 		retv
 	}
 }
@@ -145,6 +221,7 @@ unsafe impl GlobalAlloc for StackCallAlloc {
     	let retptr :*mut u8;
     	let mut addr :u64;
     	let mut allsize :usize;
+    	let retv :i32;
     	allsize = layout.size();
     	if layout.align() > 0 {
     		allsize += layout.align() as usize - 1;	
@@ -162,12 +239,29 @@ unsafe impl GlobalAlloc for StackCallAlloc {
     	}
     	retptr = addr as *mut u8;
     	(*self.lock).lock();
-
+    	retv = self._alloc_inner(ptr,retptr);
     	(*self.lock).unlock();
+
+    	if retv < 0 {
+    		/*not insert*/
+    		libc::free(ptr);
+    		return null_mut();
+    	}
 
     	retptr
     }
+
+
     unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
+    	let retv :i32;
+    	(*self.lock).lock();
+    	retv=  self._dealloc_inner(_ptr,_layout);
+    	(*self.lock).unlock();
+    	if retv == 0 {
+    		libc::free(_ptr as *mut libc::c_void);
+    	}
+    	return;
+
     }
 
 }
