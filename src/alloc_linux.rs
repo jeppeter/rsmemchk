@@ -1,4 +1,12 @@
 
+fn _write_func(fd :libc::c_int, buf :*const libc::c_void, size :u32)
+{
+	unsafe {
+		let _ = libc::write(fd,buf,size as usize);
+		return;		
+	}
+}
+
 
 const SKIP_UX_BKSIZE :usize = 1;
 

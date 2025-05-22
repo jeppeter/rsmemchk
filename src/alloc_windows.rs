@@ -1,3 +1,11 @@
+fn _write_func(fd :libc::c_int, buf :*const libc::c_void, size :u32)
+{
+	unsafe {
+		let _ = libc::write(fd,buf,size);
+		return;
+	}
+}
+
 
 use winapi::um::minwinbase::{CRITICAL_SECTION};
 use winapi::um::synchapi::{InitializeCriticalSection,EnterCriticalSection,LeaveCriticalSection};
