@@ -119,27 +119,6 @@ impl MemoryList {
 		libc::memcpy((*retv).callstack as *mut libc::c_void, stck as *const libc::c_void,size_of::<*const libc::c_void>() * (*retv).callsize);
 		return retv;
 	}
-
-	fn take_next(&mut self) -> *const MemoryList {
-		let retv = self.next;
-		self.next = null_mut();
-		return retv;
-	}
-
-	fn set_align(&mut self, realptr :*mut libc::c_void,align :u32) {
-		let mut addr :u64 = realptr as u64;
-		self.realptr = realptr;
-		addr += (align - 1) as u64;
-		addr &= !((align - 1) as u64);
-		self.alignptr = addr as *mut u8;
-		return;
-	}
-
-	fn set_next(&mut self,other :* mut MemoryList) -> *mut MemoryList {
-		let retv = self.next;
-		self.next = other;
-		return retv;
-	}
 }
 
 //const TRACE_LEVEL :i32 = 40;
@@ -158,6 +137,8 @@ pub struct StackCallAlloc {
 }
 
 const BACK_MEM_SIZE :usize = 4;
+
+unsafe impl Sync for StackCallAlloc {}
 
 #[allow(dead_code)]
 #[allow(unsafe_op_in_unsafe_fn)]
@@ -344,6 +325,40 @@ impl StackCallAlloc {
 			return null_mut();
 		}
 		retv
+	}
+
+	pub unsafe fn scan(&self) {
+		let mut idx :usize;
+		let mut jdx :usize;
+		(*self.lock).lock();
+		idx = 0;
+		while idx < self.memsize {
+			let mut cptr :*mut MemoryList = *self.memlist.wrapping_add(idx);
+			while cptr != null_mut() {
+				self._error_write_str("memlist[");
+				self._error_write_val(idx as u64,false);
+				self._error_write_str("] alignptr[");
+				self._error_write_val((*cptr).alignptr as u64,true);
+				self._error_write_str("] realptr[");
+				self._error_write_val((*cptr).realptr as u64,true);
+				self._error_write_str("] backs[");
+				jdx = 0;
+				while jdx < (*cptr).callsize {
+					let curback :*const libc::c_void = *((*cptr).callstack.wrapping_add(jdx));
+					if jdx > 0 {
+						self._error_write_str(",");
+					}
+					self._error_write_val(curback as u64,true);
+					jdx += 1;
+				}
+				self._error_write_str("]\n");
+				cptr = (*cptr).next;
+			}
+			idx += 1;
+		}
+
+		(*self.lock).unlock();
+
 	}
 }
 

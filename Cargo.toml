@@ -3,6 +3,13 @@ name = "rsmalloc"
 version = "0.1.0"
 edition = "2021"
 
+[dev-dependencies]
+rsmalloc = {path = "."}
+
+[[example]]
+name = "manual"
+path = "example/manual.rs"
+
 [dependencies]
 libc = "0.2"
 
