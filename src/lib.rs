@@ -1,4 +1,4 @@
 
 mod alloc;
 
-pub use alloc::{StackCallAlloc};
+pub use alloc::{StackCallAllocEx};

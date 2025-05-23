@@ -1,16 +1,9 @@
 
-use rsmalloc::{StackCallAlloc};
+use rsmalloc::{StackCallAllocEx};
 use std::mem::ManuallyDrop;
 
 #[global_allocator]
-static ALLOCATOR: StackCallAlloc = get_allocate();
-
-fn get_allocate() -> StackCallAlloc {
-	unsafe {
-		let c :*mut StackCallAlloc = StackCallAlloc::new(10007);
-		*c
-	}
-}
+static ALLOCATOR: StackCallAllocEx = StackCallAllocEx{};
 
 #[derive(Debug)]
 struct C {
@@ -23,7 +16,7 @@ struct D {
 }
 
 fn call_1(c :C) -> D {
-	let d = D {
+	let mut d = D {
 		bb :vec![],
 	};
 
@@ -50,6 +43,7 @@ fn main() {
 	let d :D = call_3(50);
 	let e :ManuallyDrop<D> = ManuallyDrop::new(d);
 
-	println!("c {:?} e {:?}",c,&e);
+	println!("c {:?}\ne {:?}",c,&e);
 	drop(c);
+	StackCallAllocEx::scan();
 }
