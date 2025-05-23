@@ -42,9 +42,10 @@ fn call_3(x :i32) -> D {
 fn main() -> Result<(),Box<dyn Error>> {
 	let c :C = call_2(77);
 	let d :D = call_3(50);
-	let e :ManuallyDrop<D> = ManuallyDrop::new(d);
+	let ee :D = call_3(9);
+	let e :ManuallyDrop<D> = ManuallyDrop::new(ee);
 
-	println!("c {:?}\ne {:?}",c,&e);
+	println!("c {:?}\nd {:?}\ne {:?}",c,d,&e);
 	drop(c);
 	ALLOCATOR.scan();
 	let maps :MemoryInfo = ALLOCATOR.get_memory_info()?;
