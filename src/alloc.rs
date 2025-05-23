@@ -2,6 +2,40 @@
 use std::alloc::{GlobalAlloc,Layout};
 use std::mem::{size_of};
 use std::ptr::{null_mut};
+use std::error::Error;
+use crate::*;
+#[allow(unused_imports)]
+use crate::logger::*;
+
+pub struct MemoryMap {
+	pub startaddr :u64,
+	pub endaddr :u64,
+	pub mapfile :String,
+}
+
+pub struct MemoryInfo {
+	pub maps :Vec<MemoryMap>,
+}
+
+impl MemoryMap {
+	pub fn new() -> Self {
+		Self {
+			startaddr : 0,
+			endaddr :0,
+			mapfile : format!(""),
+		}
+	}
+}
+
+impl MemoryInfo {
+	pub fn new() -> Self {
+		Self {
+			maps :vec![],
+		}
+	}
+}
+
+rsmalloc_error_class!{RsAllocError}
 
 #[cfg(target_os = "windows")]
 include!("alloc_windows.rs");
@@ -492,6 +526,12 @@ impl StackCallAllocEx {
 		unsafe {
 			(*ptr).scan();	
 		}		
+	}
+
+	pub fn get_memory_info(&self) -> Result<MemoryInfo,Box<dyn Error>> {
+		unsafe {
+			return _get_mem_info();
+		}
 	}
 }
 

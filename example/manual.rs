@@ -1,9 +1,10 @@
 
-use rsmalloc::{StackCallAllocEx};
+use rsmalloc::{StackCallAllocEx,MemoryInfo};
 use std::mem::ManuallyDrop;
+use std::error::Error;
 
 #[global_allocator]
-static ALLOCATOR: StackCallAllocEx = StackCallAllocEx{memsize : 10007};
+static ALLOCATOR: StackCallAllocEx = StackCallAllocEx{memsize : 23};
 
 #[derive(Debug)]
 struct C {
@@ -38,7 +39,7 @@ fn call_3(x :i32) -> D {
 }
 
 
-fn main() {
+fn main() -> Result<(),Box<dyn Error>> {
 	let c :C = call_2(77);
 	let d :D = call_3(50);
 	let e :ManuallyDrop<D> = ManuallyDrop::new(d);
@@ -46,4 +47,15 @@ fn main() {
 	println!("c {:?}\ne {:?}",c,&e);
 	drop(c);
 	ALLOCATOR.scan();
+	let maps :MemoryInfo = ALLOCATOR.get_memory_info()?;
+	for v in maps.maps.iter() {
+		println!("0x{:x} - 0x{:x} [{}]", v.startaddr,v.endaddr,v.mapfile);
+	}
+
+	println!("os pid wait");
+	loop {
+		std::thread::sleep(std::time::Duration::from_millis(5000));
+	}
+
+	Ok(())
 }
