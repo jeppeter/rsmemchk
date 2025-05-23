@@ -415,18 +415,18 @@ impl StackCallAlloc {
 			}
 			(*retv).loglvl = ERROR_LEVEL;
 			(*retv).fd = ALLOC_DEFAULT_FD;
-			retstr = libc::getenv("RSMALLOC_LOGLEVEL\0".as_bytes().as_ptr() as *const i8);
+			retstr = libc::getenv("RSMALLOC_LOGLEVEL\0".as_bytes().as_ptr() as *const libc::c_char);
 			if retstr != null_mut() {
 				(*retv).loglvl = libc::atoi(retstr);
 			}
-			retstr = libc::getenv("RSMALLOC_LOGFILE\0".as_bytes().as_ptr() as *const i8);
+			retstr = libc::getenv("RSMALLOC_LOGFILE\0".as_bytes().as_ptr() as *const libc::c_char);
 			(*retv)._error_write_str("get RSMALLOC_LOGFILE=");
 			
 			if retstr != null_mut() {
 				(*retv)._error_write_val(retstr as u64, true);
 				let mut cidx :usize = 0;
 				loop {
-					let c :i8 = *(retstr.wrapping_add(cidx));
+					let c :libc::c_char = *(retstr.wrapping_add(cidx));
 					if c == 0 {
 						(*retv)._error_write_str("[");
 						(*retv)._error_write_val(c as u64, true);
