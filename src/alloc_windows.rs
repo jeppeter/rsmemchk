@@ -10,10 +10,14 @@ fn _write_func(fd :libc::c_int, buf :*const libc::c_void, size :u32)
 use winapi::um::minwinbase::{CRITICAL_SECTION};
 //use winapi::shared::basetsd::{ULONG_PTR};
 use winapi::um::synchapi::{InitializeCriticalSection,EnterCriticalSection,LeaveCriticalSection};
-use winapi::um::winnt::{RtlCaptureStackBackTrace,HANDLE,PVOID};
-use winapi::shared::minwindef::{ULONG,WORD,BOOL,DWORD,TRUE,LPVOID};
-use winapi::um::processthreadsapi::{GetCurrentProcess};
+#[allow(unused_imports)]
+use winapi::um::winnt::{RtlCaptureStackBackTrace,HANDLE,PVOID,PROCESS_VM_READ,PROCESS_QUERY_INFORMATION};
+#[allow(unused_imports)]
+use winapi::shared::minwindef::{ULONG,WORD,BOOL,DWORD,TRUE,LPVOID,FALSE};
+#[allow(unused_imports)]
+use winapi::um::processthreadsapi::{OpenProcess,GetCurrentProcessId,GetCurrentProcess};
 use winapi::um::psapi::{QueryWorkingSet,PSAPI_WORKING_SET_INFORMATION,PSAPI_WORKING_SET_BLOCK,GetMappedFileNameA};
+use winapi::um::handleapi::{CloseHandle};
 
 const SKIP_WIN_BKSIZE :usize = 1;
 
@@ -101,14 +105,15 @@ impl AllocLock {
 	}
 }
 
-const WIN_PAGE_SHIFT :usize = 12;
+const WIN_PAGE_SHIFT :u64 = 12;
 const WIN_PAGE_ADDR_MASK :u64 = (1 << WIN_PAGE_SHIFT) - 1;
 //const WIN_PAGE_ADDR_ALIGN :u64 = !(WIN_PAGE_ADDR_MASK);
 const FNAME_SIZE :usize = 256;
 
+#[allow(unused_assignments)]
 #[allow(unused_mut)]
 unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
-	let hproc :HANDLE;
+	let mut hproc :HANDLE = null_mut() ;
 	let mut cinfo :*mut PSAPI_WORKING_SET_INFORMATION = null_mut();
 	let mut cinfosize :usize = size_of::<PSAPI_WORKING_SET_INFORMATION>();
 	let mut lastpage :u64 = 0;
@@ -121,6 +126,14 @@ unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 	let mut sret :DWORD;
 	let mut cptr :*mut i8 = null_mut();
 	let mut sptr :*const i8;
+	let pid :DWORD;
+
+	//pid = GetCurrentProcessId();
+
+	//hproc = OpenProcess(PROCESS_VM_READ|PROCESS_QUERY_INFORMATION,FALSE,pid);
+	//if hproc == null_mut() {
+	//	rsmalloc_new_error!{RsAllocError, "can not open {} error", pid}
+	//}
 	hproc = GetCurrentProcess();
 
 	loop {
@@ -129,6 +142,9 @@ unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 		}
 		cinfo = libc::malloc(cinfosize) as *mut PSAPI_WORKING_SET_INFORMATION;
 		if cinfo == null_mut() {
+			if hproc != GetCurrentProcess() {
+				CloseHandle(hproc);	
+			}			
 			rsmalloc_new_error!{RsAllocError,"can not alloc size {}", cinfosize}
 		}
 
@@ -142,11 +158,14 @@ unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 
 	/*now we should give the memory*/
 	let wkset :*const PSAPI_WORKING_SET_BLOCK = &((*cinfo).WorkingSetInfo[0]) as *const PSAPI_WORKING_SET_BLOCK;
+	rsmalloc_debug_buffer_trace!(cinfo, size_of::<PSAPI_WORKING_SET_INFORMATION>()+((*cinfo).NumberOfEntries - 1) * size_of::<PSAPI_WORKING_SET_BLOCK>(),"TOTAL workingset");
 	for i in 0..(*cinfo).NumberOfEntries {
 		let cblock :*const PSAPI_WORKING_SET_BLOCK = wkset.wrapping_add(i) as *const PSAPI_WORKING_SET_BLOCK;
+		let curpage :u32 = ((*cblock).Flags >> 12) as u32;
+		rsmalloc_debug_buffer_trace!(cblock, size_of::<PSAPI_WORKING_SET_BLOCK>(), "{} cblock VirtualPage 0x{:x}",i,curpage);
 		if i == 0 {
-			saddr = ((*cblock).VirtualPage() as u64) << WIN_PAGE_SHIFT;
-			lastpage = (*cblock).VirtualPage() as u64;
+			saddr = (curpage as u64) << WIN_PAGE_SHIFT;
+			lastpage = curpage as u64;
 			curmap = MemoryMap::new();
 			curmap.startaddr = saddr;
 			cptr = (&mut filename) as *mut i8;
@@ -165,18 +184,20 @@ unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 				curmap.mapfile = String::from_utf8_lossy(&storefilename[0..(sret as usize )]).to_string();
 			}
 		} else {
-			saddr = ((*cblock).VirtualPage() as u64) << WIN_PAGE_SHIFT;
-			if (lastpage+1) == (*cblock).VirtualPage() as u64 {
+			saddr = (curpage as u64) << WIN_PAGE_SHIFT;
+			if (lastpage+1) == curpage as u64 {
 				cptr = &mut filename as *mut i8;
 				sret = GetMappedFileNameA(hproc,saddr as LPVOID,cptr,FNAME_SIZE as u32);
 				rsmalloc_log_trace!("[{}]saddr 0x{:x} sret {}",i, saddr, sret);
 				if sret == 0 {
-					curmap.endaddr = (lastpage << WIN_PAGE_SHIFT) + WIN_PAGE_ADDR_MASK;
-					retinfo.maps.push(curmap);
-					curmap = MemoryMap::new();
-					curmap.startaddr = saddr;
-					cptr = ((&mut storefilename) as *mut u8) as *mut i8;
-					libc::memset(cptr as *mut libc::c_void,0,FNAME_SIZE);
+					if storefilename[0] != 0 {
+						curmap.endaddr = (lastpage << WIN_PAGE_SHIFT) + WIN_PAGE_ADDR_MASK;
+						retinfo.maps.push(curmap);
+						curmap = MemoryMap::new();
+						curmap.startaddr = saddr;
+						cptr = ((&mut storefilename) as *mut u8) as *mut i8;
+						libc::memset(cptr as *mut libc::c_void,0,FNAME_SIZE);						
+					}
 				} else {
 					sptr = (&storefilename as *const u8) as *const i8;
 					if libc::strcmp(&filename as *const i8,sptr) != 0 {
@@ -204,13 +225,17 @@ unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 					cptr = (&mut storefilename as *mut u8 ) as *mut i8;
 					sptr = &filename as *const i8;
 					libc::memcpy(cptr as *mut libc::c_void,sptr as *const libc::c_void,FNAME_SIZE);
+					rsmalloc_debug_buffer_trace!(cptr, sret, "copy name");
 					curmap.mapfile = String::from_utf8_lossy(&storefilename[0..(sret as usize)]).to_string();
 				}
 			}
-			lastpage = (*cblock).VirtualPage() as u64;
+			lastpage = curpage as u64;
 		}
 	}
 
 	libc::free(cinfo as *mut libc::c_void);
+	if hproc != GetCurrentProcess() {
+		CloseHandle(hproc);	
+	}	
 	Ok(retinfo)
 }

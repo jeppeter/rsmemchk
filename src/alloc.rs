@@ -1,7 +1,8 @@
 
 use std::alloc::{GlobalAlloc,Layout};
 use std::mem::{size_of};
-use std::ptr::{null_mut};
+#[allow(unused_imports)]
+use std::ptr::{null_mut,null};
 use std::error::Error;
 use crate::*;
 #[allow(unused_imports)]

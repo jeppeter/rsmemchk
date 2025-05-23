@@ -19,7 +19,7 @@ chrono = "^0.4.0"
 
 [target.'cfg(windows)'.dependencies.winapi]
 version = "^0.3"
-features = ["minwinbase","synchapi","winnt","minwindef","psapi","processthreadsapi","basetsd"]
+features = ["minwinbase","synchapi","winnt","minwindef","psapi","processthreadsapi","basetsd","handleapi"]
 
 [features]
 debug_mode = []
