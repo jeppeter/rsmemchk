@@ -110,6 +110,17 @@ const WIN_PAGE_ADDR_MASK :u64 = (1 << WIN_PAGE_SHIFT) - 1;
 //const WIN_PAGE_ADDR_ALIGN :u64 = !(WIN_PAGE_ADDR_MASK);
 const FNAME_SIZE :usize = 256;
 
+unsafe fn get_len(bstr :&[u8;FNAME_SIZE]) -> u32 {
+	let mut idx :usize = 0;
+	while idx < FNAME_SIZE {
+		if bstr[idx] == 0 {
+			return idx as u32;
+		}
+		idx += 1;
+	}
+	return idx as u32;
+}
+
 #[allow(unused_assignments)]
 #[allow(unused_mut)]
 unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
@@ -126,7 +137,6 @@ unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 	let mut sret :DWORD;
 	let mut cptr :*mut i8 = null_mut();
 	let mut sptr :*const i8;
-	let pid :DWORD;
 
 	//pid = GetCurrentProcessId();
 
@@ -161,7 +171,7 @@ unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 	rsmalloc_debug_buffer_trace!(cinfo, size_of::<PSAPI_WORKING_SET_INFORMATION>()+((*cinfo).NumberOfEntries - 1) * size_of::<PSAPI_WORKING_SET_BLOCK>(),"TOTAL workingset");
 	for i in 0..(*cinfo).NumberOfEntries {
 		let cblock :*const PSAPI_WORKING_SET_BLOCK = wkset.wrapping_add(i) as *const PSAPI_WORKING_SET_BLOCK;
-		let curpage :u32 = ((*cblock).Flags >> 12) as u32;
+		let curpage :u64 = ((*cblock).Flags >> 12) as u64;
 		rsmalloc_debug_buffer_trace!(cblock, size_of::<PSAPI_WORKING_SET_BLOCK>(), "{} cblock VirtualPage 0x{:x}",i,curpage);
 		if i == 0 {
 			saddr = (curpage as u64) << WIN_PAGE_SHIFT;
@@ -180,7 +190,7 @@ unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 				cptr = ((&mut storefilename) as *mut u8) as *mut i8;
 				sptr = &filename as *const i8;
 				libc::memcpy(cptr as *mut libc::c_void,sptr as *const libc::c_void,FNAME_SIZE);
-				storefilename[sret as usize] = 0;
+				sret = get_len(&storefilename);
 				curmap.mapfile = String::from_utf8_lossy(&storefilename[0..(sret as usize )]).to_string();
 			}
 		} else {
@@ -208,6 +218,7 @@ unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 						cptr = (&mut storefilename as *mut u8 ) as *mut i8;
 						sptr = &filename as *const i8;
 						libc::memcpy(cptr as *mut libc::c_void,sptr as *const libc::c_void,FNAME_SIZE);
+						sret = get_len(&storefilename);
 						curmap.mapfile = String::from_utf8_lossy(&storefilename[0..(sret as usize)]).to_string();
 					}
 				}				
@@ -225,6 +236,7 @@ unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 					cptr = (&mut storefilename as *mut u8 ) as *mut i8;
 					sptr = &filename as *const i8;
 					libc::memcpy(cptr as *mut libc::c_void,sptr as *const libc::c_void,FNAME_SIZE);
+					sret = get_len(&storefilename);
 					rsmalloc_debug_buffer_trace!(cptr, sret, "copy name");
 					curmap.mapfile = String::from_utf8_lossy(&storefilename[0..(sret as usize)]).to_string();
 				}

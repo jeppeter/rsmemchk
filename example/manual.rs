@@ -50,12 +50,7 @@ fn main() -> Result<(),Box<dyn Error>> {
 	let maps :MemoryInfo = ALLOCATOR.get_memory_info()?;
 	for v in maps.maps.iter() {
 		println!("0x{:x} - 0x{:x} [{}]", v.startaddr,v.endaddr,v.mapfile);
-	}
-
-	println!("os pid wait");
-	loop {
-		std::thread::sleep(std::time::Duration::from_millis(5000));
-	}
+	}	
 
 	Ok(())
 }
