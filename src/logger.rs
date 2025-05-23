@@ -326,8 +326,8 @@ macro_rules! rsmalloc_debug_buffer_debug {
 /// ```
 /// rsmalloc_log_trace!("call value {}",3);
 /// ```
-//#[cfg(feature="debug_mode")]
 #[macro_export]
+#[cfg(feature="debug_mode")]
 #[allow(unused_macros)]
 macro_rules! rsmalloc_log_trace {
 	($($arg:tt)+) => {
@@ -341,12 +341,12 @@ macro_rules! rsmalloc_log_trace {
 /// ```
 /// rsmalloc_log_trace!("call value {}",3);
 /// ```
-// #[macro_export]
-// #[allow(unused_macros)]
-// #[cfg(not(feature="debug_mode"))]
-// macro_rules! rsmalloc_log_trace {
-// 	($($arg:tt)+) => {}
-// }
+#[macro_export]
+#[allow(unused_macros)]
+#[cfg(not(feature="debug_mode"))]
+macro_rules! rsmalloc_log_trace {
+	($($arg:tt)+) => {}
+}
 
 
 /// call debug buffer when RSMALLOC_LEVEL >= 40
@@ -354,8 +354,8 @@ macro_rules! rsmalloc_log_trace {
 /// let buf :Vec<u8> = vec![3,2,4];
 /// rsmalloc_format_buffer_trace!(buf.as_ptr(),buf.len(),"buffer output value {}",3);
 /// ```
-//#[cfg(feature="debug_mode")]
 #[macro_export]
+#[cfg(feature="debug_mode")]
 #[allow(unused_macros)]
 macro_rules! rsmalloc_debug_buffer_trace {
 	($buf:expr,$len:expr,$($arg:tt)+) => {
@@ -363,15 +363,14 @@ macro_rules! rsmalloc_debug_buffer_trace {
 	}
 }
 
-///// call debug buffer when RSMALLOC_LEVEL >= 40
-///// ```
-///// let buf :Vec<u8> = vec![3,2,4];
-///// rsmalloc_format_buffer_trace!(buf.as_ptr(),buf.len(),"buffer output value {}",3);
-///// ```
-
-// #[macro_export]
-// #[allow(unused_macros)]
-// #[cfg(not(feature="debug_mode"))]
-// macro_rules! rsmalloc_debug_buffer_trace {
-// 	($buf:expr,$len:expr,$($arg:tt)+) => {}
-// }
+/// call debug buffer when RSMALLOC_LEVEL >= 40
+/// ```
+/// let buf :Vec<u8> = vec![3,2,4];
+/// rsmalloc_format_buffer_trace!(buf.as_ptr(),buf.len(),"buffer output value {}",3);
+/// ```
+#[macro_export]
+#[allow(unused_macros)]
+#[cfg(not(feature="debug_mode"))]
+macro_rules! rsmalloc_debug_buffer_trace {
+	($buf:expr,$len:expr,$($arg:tt)+) => {}
+}
