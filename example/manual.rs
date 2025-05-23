@@ -3,7 +3,7 @@ use rsmalloc::{StackCallAllocEx};
 use std::mem::ManuallyDrop;
 
 #[global_allocator]
-static ALLOCATOR: StackCallAllocEx = StackCallAllocEx{};
+static ALLOCATOR: StackCallAllocEx = StackCallAllocEx{memsize : 10007};
 
 #[derive(Debug)]
 struct C {
@@ -45,5 +45,5 @@ fn main() {
 
 	println!("c {:?}\ne {:?}",c,&e);
 	drop(c);
-	StackCallAllocEx::scan();
+	ALLOCATOR.scan();
 }
