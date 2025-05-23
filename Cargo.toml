@@ -14,12 +14,14 @@ path = "example/manual.rs"
 libc = "0.2"
 lazy_static = "^1.4.0"
 chrono = "^0.4.0"
+regex = "1"
 
 
 
 [target.'cfg(windows)'.dependencies.winapi]
 version = "^0.3"
 features = ["minwinbase","synchapi","winnt","minwindef","psapi","processthreadsapi","basetsd","handleapi"]
+
 
 [features]
 debug_mode = []

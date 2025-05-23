@@ -50,7 +50,6 @@ fn main() -> Result<(),Box<dyn Error>> {
 	let maps :MemoryInfo = ALLOCATOR.get_memory_info()?;
 	for v in maps.maps.iter() {
 		println!("0x{:x} - 0x{:x} [{}]", v.startaddr,v.endaddr,v.mapfile);
-	}	
-
+	}
 	Ok(())
 }
