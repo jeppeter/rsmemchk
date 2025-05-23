@@ -167,7 +167,7 @@ const FATAL_LEVEL:i32 = 0;
 
 
 #[repr(C)]
-pub struct StackCallAlloc {	
+struct StackCallAlloc {	
 	lock : *mut AllocLock,
 	memlist :*mut *mut MemoryList,
 	memsize :usize,
