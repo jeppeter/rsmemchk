@@ -94,13 +94,8 @@ unsafe fn _write_val(fd: libc::c_int,val :u64, ishex :bool) {
 		}
 	}
 
-	if clen == 0 {
-		obuf[0] = b'0';
-		clen += 1;
-	} else {
-		for i in 0..clen {
-			obuf[i] = cbuf[clen - i-1];
-		}
+	for i in 0..clen {
+		obuf[i] = cbuf[clen - i-1];
 	}
 	let _ptr :*const u8 = obuf.as_ptr();
 
