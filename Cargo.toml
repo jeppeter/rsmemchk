@@ -10,6 +10,11 @@ rsmalloc = {path = "."}
 name = "manual"
 path = "example/manual.rs"
 
+[[example]]
+name = "multi"
+path = "example/multi.rs"
+
+
 [dependencies]
 libc = "0.2"
 lazy_static = "^1.4.0"
