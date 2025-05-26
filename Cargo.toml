@@ -5,6 +5,9 @@ edition = "2021"
 
 [dev-dependencies]
 rsmalloc = {path = "."}
+extargsparse_worker = "^0.2.2"
+extargsparse_codegen = "^0.1.4"
+
 
 [[example]]
 name = "manual"
@@ -13,6 +16,10 @@ path = "example/manual.rs"
 [[example]]
 name = "multi"
 path = "example/multi.rs"
+
+[[example]]
+name = "extparser"
+path = "example/extparser.rs"
 
 
 [dependencies]
