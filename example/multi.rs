@@ -16,6 +16,7 @@ struct D {
 	bb :Vec<i32>,
 }
 
+#[inline(never)]
 fn call_1(c :C) -> D {
 	let mut d = D {
 		bb :vec![],
@@ -27,17 +28,20 @@ fn call_1(c :C) -> D {
 	d
 }
 
+#[inline(never)]
 fn call_2(v :i32) -> C {
 	C {
 		cc :v
 	}
 }
 
+#[inline(never)]
 fn call_3(x :i32) -> D {
 	let c :C = call_2(x);
 	return call_1(c);
 }
 
+#[inline(never)]
 fn call_4(c :i32) -> Vec<D> {
 	let mut retv :Vec<D> = vec![];
 	for i in 0..c{
