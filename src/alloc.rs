@@ -182,7 +182,7 @@ pub struct StackCallAllocEx {
 
 static mut GLBL_ALLOC :*mut StackCallAlloc = null_mut();
 
-const BACK_MEM_SIZE :usize = 4;
+const BACK_MEM_SIZE :usize = 8;
 
 unsafe impl Sync for StackCallAlloc {}
 unsafe impl Sync for StackCallAllocEx {}
