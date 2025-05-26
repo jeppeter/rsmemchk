@@ -157,7 +157,7 @@ fn _read_file(fname :&str) -> Result<String,Box<dyn Error>> {
 unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 	let c :String = _read_file("/proc/self/maps")?;
 	let sarr : Vec<&str> = c.split("\n").collect();
-	let regstr :String = "^([0-9a-fA-F]+)\\-([0-9a-fA-F]+)\\s+([^ ]+)\\s+([0-9a-fA-F]+)\\s+([0-9:]+)\\s+([0-9]+)(\\s+(.*))?".to_string();
+	let regstr :String = "^([0-9a-fA-F]+)\\-([0-9a-fA-F]+)\\s+([^ ]+)\\s+([0-9a-fA-F]+)\\s+([0-9a-fA-F:]+)\\s+([0-9]+)(\\s+(.*))?".to_string();
 	let reg : regex::Regex;
 	let ores = regex::Regex::new(&regstr);
 	let mut retinfo :MemoryInfo = MemoryInfo::new();
