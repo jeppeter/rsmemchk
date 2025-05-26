@@ -6,6 +6,7 @@ import socket
 import logging
 import re
 import os
+from rust_demangler import demangle
 
 
 class ReadFileLarge(object):
@@ -110,8 +111,116 @@ class MemoryInfo(object):
 	def search_addr(self,addr):
 		for m in self.maps:
 			if addr >= m.startaddr and addr <= m.endaddr:
-				return '%s +0x%x'%(m.mapfile,addr - m.startaddr)
+				return m.mapfile, addr - m.startaddr
+		return None,None
+
+
+class ObjDumpAsm(object):
+	def __init__(self,fname):
+		self.fname = fname
+		self.fd = ReadFileLarge(fname)
+		self.addrmap = dict()		
+		self.addrstart = []
+		self.addrend = []
+		self._parse_file()
+		return
+
+	def _parse_file(self):
+		startexpr = re.compile('^([0-9a-fA-F]+)\\s+<([^>]+)>:',re.I)
+		if self.fd is None:
+			return
+		for l in self.fd.fh:
+			l = l.rstrip('\r\n')
+			m = startexpr.findall(l)
+			if m is not None and len(m) > 0:
+				startstr = '0x%s'%(m[0][0])
+				saddr = parse_int(startstr)
+				if (len(self.addrend) >0 and saddr > self.addrend[-1]) or len(self.addrend) == 0:
+					self.addrstart.append(saddr)
+					if len(self.addrend) > 0:
+						self.addrend[-1] = saddr - 1
+						self.addrend.append(saddr)
+					else:
+						self.addrend.append(saddr + 1)
+					nstr = '0x%x'%(saddr)
+					#logging.info('%s name %s'%(nstr, m[0][1]))
+					self.addrmap[nstr] = m[0][1]
+		if len(self.addrend) > 0:
+			self.addrend[-1] = self.addrstart[-1] + 1
+		del self.fd
+		self.fd = None
+		return
+
+	def _return_addr_val(self,cidx,addr):
+		addrs = '0x%x'%(self.addrstart[cidx])
+		cs = None
+		if addrs in self.addrmap.keys():
+			cs = self.addrmap[addrs]
+			try:
+				cs = demangle(cs)
+			except:
+				pass
+		if cs is not None:
+			return '%s +0x%x'%(cs,addr - self.addrstart[cidx])
 		return None
+
+
+	def search_addr(self,addr):
+		sidx = 0
+		assert(len(self.addrstart) == len(self.addrend))
+		eidx = len(self.addrstart) - 1
+		cidx = int((sidx + eidx) >> 1)
+		while sidx < eidx:
+			if cidx == sidx:
+				if self.addrstart[cidx] <= addr and self.addrend[cidx] >= addr:
+					return self._return_addr_val(cidx,addr)
+				elif self.addrend[cidx] < addr:
+					sidx += 1
+				else:
+					eidx -= 1
+			elif cidx == eidx:
+				if self.addrstart[cidx] <= addr and self.addrend[cidx] >= addr:
+					return self._return_addr_val(cidx,addr)
+				elif self.addrstart[cidx] > addr:
+					eidx -= 1
+				else:
+					sidx += 1
+			else:
+				if self.addrstart[cidx] <= addr and self.addrend[cidx] >= addr:
+					return self._return_addr_val(cidx,addr)
+				elif self.addrstart[cidx] > addr:
+					eidx = cidx
+				else:
+					sidx = cidx
+			cidx = int((sidx + eidx) >> 1)
+		logging.info('cidx %d len(%d)'%(cidx,len(self.addrstart)))
+		if self.addrstart[cidx] <= addr and self.addrend[cidx] >= addr:
+			return self._return_addr_val(cidx,addr)
+		return None
+
+
+
+class ObjDumpMap(object):
+	def __init__(self,srcdir):
+		self.srcdir = srcdir
+		self.objdumpmap = dict()
+		return
+
+	def parse_file(self,fname):
+		bname = os.path.basename(fname)
+		asmname = os.path.join(self.srcdir,'%s.asm'%(bname))
+		#logging.info('will scan %s'%(asmname))
+		if os.path.exists(asmname) and asmname not in self.objdumpmap.keys():
+			self.objdumpmap[asmname] = ObjDumpAsm(asmname)
+		return
+
+	def search_addr(self,fname,addr):
+		bname = os.path.basename(fname)
+		asmname = os.path.join(self.srcdir,'%s.asm'%(bname))
+		if os.path.exists(asmname) and asmname in self.objdumpmap.keys():
+			return self.objdumpmap[asmname].search_addr(addr)
+		return None
+
 
 
 
@@ -171,14 +280,26 @@ def memlistparse_handler(args,parser):
 					for c in sarr:
 						stks.append(parse_int(c))
 					memleak['0x%x'%(alignptr)] = MemLeak(alignptr,realptr,size,stks)
+
+	if args.srcdir is not None:
+		asmmap = ObjDumpMap(args.srcdir)
 	if len(memleak.keys()) > 0:
 		# now to search for call stack
 		for k in memleak.keys():
 			curleak = memleak[k]
 			sys.stdout.write('alignptr[0x%x]realptr[0x%x]size[0x%x]\n'%(curleak.alignptr,curleak.realptr,curleak.size))
 			for fnaddr in memleak[k].callstacks:
-				m = meminfo.search_addr(fnaddr)
-				sys.stdout.write('    %s\n'%(m))
+				fname,addr = meminfo.search_addr(fnaddr)
+				if fname is not None:
+					fnaddrs = ''
+					if args.srcdir is not None:
+						asmmap.parse_file(fname)
+						ns = asmmap.search_addr(fname,addr)
+						if ns is not None:
+							fnaddrs = ns
+					sys.stdout.write('    %s +0x%x %s\n'%(fname,addr,fnaddrs))
+
+
 	sys.exit(0)
 
 
