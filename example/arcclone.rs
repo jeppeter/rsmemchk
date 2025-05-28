@@ -32,10 +32,11 @@ impl Drop for CInner {
 		println!("CInner drop");
 		loop {
 			let mut idx :usize = 0;
-			let mut ov :Option<Rc<RefCell<CFunc>>> = None;
-			for (k,v) in self.callfuncs.borrow_mut().iter() {
+			//let mut ov :Option<Rc<RefCell<CFunc>>> = None;
+			let mut ks :String = "".to_string();
+			for (k,_v) in self.callfuncs.borrow().iter() {
 				println!("k {}", k);
-				ov = self.callfuncs.borrow_mut().remove(k);
+				ks = format!("{}",k);
 				idx += 1;
 				break;
 			}
@@ -43,7 +44,8 @@ impl Drop for CInner {
 			if idx == 0 {
 				break;
 			}
-			let c =ov.unwrap();
+			let ov = self.callfuncs.borrow_mut().remove(&ks);
+			let c = ov.unwrap();
 			println!("rc count {}",Rc::strong_count(&c));
 			drop(c);
 		}
