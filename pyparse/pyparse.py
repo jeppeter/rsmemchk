@@ -7,6 +7,7 @@ import logging
 import re
 import os
 from rust_demangler import demangle
+import pefile
 
 
 class ReadFileLarge(object):
@@ -167,7 +168,7 @@ class ObjDumpAsm(object):
 					else:
 						self.addrend.append(saddr + 1)
 					nstr = '0x%x'%(saddr)
-					#logging.info('%s name %s'%(nstr, m[0][1]))
+					logging.info('%s name %s'%(nstr, m[0][1]))
 					self.addrmap[nstr] = m[0][1]
 		if len(self.addrend) > 0:
 			self.addrend[-1] = self.addrstart[-1] + 1
@@ -245,6 +246,60 @@ class ObjDumpMap(object):
 			return self.objdumpmap[asmname].search_addr(addr)
 		return None
 
+class PeMapTrans(object):
+	def __init__(self,f):
+		self.fname = f
+		self.VirtualAddress = None
+		self.PointerToRawData = None
+		return
+
+	def parse_pe(self):
+		try:
+			pe = pefile.PE(self.fname)
+			for s in pe.sections:
+				if sys.version[0] == '3':
+					n = sec.Name.decode('utf-8')
+				else:
+					n = str(sec.Name)
+				if n == '.text':
+					self.VirtualAddress = s.VirtualAddress
+					self.PointerToRawData = s.PointerToRawData
+					return True
+		except:
+			logging.error('%s'%(traceback.format_exc()))
+			return False
+		return False
+
+class PeMap(object):
+	def __init__(self,srcdir):
+		self.srcdir = srcdir
+		self.petrans = dict()
+		return
+
+	def parse_pe(self,fname):
+		bname = os.path.basename(fname)
+		curfile = os.path.join(self.srcdir,bname)		
+		if os.path.exists(curfile) and (curfile.endwith('.exe') or curfile.endwith('.dll')):
+			if bname not in self.petrans.keys():
+				cb = PeMapTrans(curfile)
+				retval = cb.parse_pe()
+				if retval:
+					self.petrans[bname] = cb
+
+
+def trans_pe_addr(pemap,fname,addr):
+	bname = os.path.basename(fname)
+	retaddr = addr
+	if bname in pemap.petrans.keys():
+		logging.info('find %s'%(bname))
+		cb = pemap.petrans[bname]
+		if cb.VirtualAddress is not None and  cb.PointerToRawData is not None:
+			retaddr = addr - cb.VirtualAddress
+	else:
+		logging.info('no [%s]'%(bname))
+	logging.info('trans pe addr 0x%x'%(retaddr))
+	return retaddr
+
 
 
 
@@ -307,6 +362,7 @@ def memlistparse_handler(args,parser):
 
 	if args.srcdir is not None:
 		asmmap = ObjDumpMap(args.srcdir)
+		pemap = PeMap(args.srcdir)
 	if len(memleak.keys()) > 0:
 		meminfo.calc_map()
 		# now to search for call stack
@@ -319,6 +375,10 @@ def memlistparse_handler(args,parser):
 					fnaddrs = ''
 					if args.srcdir is not None:
 						asmmap.parse_file(fname)
+						if fname.endswith('.exe') or fname.endswith('.dll') :
+							logging.info('pe format')
+							pemap.parse_pe(fname)
+							addr = trans_pe_addr(pemap,fname,addr)
 						ns = asmmap.search_addr(fname,addr)
 						if ns is not None:
 							fnaddrs = ns
@@ -326,6 +386,24 @@ def memlistparse_handler(args,parser):
 
 
 	sys.exit(0)
+
+def readpe_handler(args,parser):
+	set_logging(args)
+	for f in args.subnargs:
+		try:
+			pe = pefile.PE(f)
+			sys.stdout.write('%s file\n'%(f))
+			sys.stdout.write('    ImageBase 0x%x\n'%(pe.OPTIONAL_HEADER.ImageBase))
+			for sec in pe.sections:
+				if sys.version[0] == '3':
+					n = sec.Name.decode('utf-8')
+				else:
+					n = str(sec.Name)
+				sys.stdout.write('   name %s rawdata 0x%x VirtualAddress 0x%x\n'%(n,sec.PointerToRawData,sec.VirtualAddress))
+		except:
+			logging.error('%s'%(traceback.format_exc()))
+	sys.exit(0)
+	return
 
 
 def main():
@@ -336,6 +414,9 @@ def main():
         "srcdir|S" : null,
         "memlistparse<memlistparse_handler>##to dump code in memlist##" : {
         	"$" : 0
+        },
+        "readpe<readpe_handler>##file ... to parse pe##" : {
+        	"$" : "+"
         }
     }
     '''

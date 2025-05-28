@@ -337,45 +337,104 @@ impl StackCallAlloc {
 
 	fn _error_write_str(&self, s:&str) {
 		if self.loglvl >= ERROR_LEVEL {
-			unsafe {
-				_write_str(self.fd,s);	
-			}
+			self._write_str_val(s);	
 			
 		}
 	}
 
+	fn _val_wide(&self,val :u64,ishex :bool, w:usize) {
+		let mut cbuf :[u8;32] = [0;32];
+		let mut clen :usize = 0;
+		let mut obuf :[u8;32] = [0;32];
+		let mut cval :u64 = val;
+
+		if ishex {
+			while cval > 0 {
+				let curval :u8 = (cval & 0xf) as u8;
+				if  curval <= 9 {
+					cbuf[clen] = b'0' + curval;
+				} else {
+					cbuf[clen] = b'a' + (curval - 10);
+				}
+				clen += 1;
+				cval >>= 4;
+			}
+
+			if clen == 0 {
+				cbuf[clen] = b'0';
+				clen += 1;
+			}
+
+			while clen < w {
+				cbuf[clen] = b'0';
+				clen += 1;
+			}
+
+			cbuf[clen] = b'x';
+			clen += 1;
+			cbuf[clen] = b'0';
+			clen += 1
+		} else {
+			while cval > 0 {
+				let curval :u8 = (cval % 10) as u8;
+				cbuf[clen] = b'0' + curval;
+				clen += 1;
+				cval = cval / 10;
+			}
+			if clen == 0 {
+				cbuf[clen] = b'0';
+				clen += 1;
+			}
+			while clen < w {
+				cbuf[clen] = b'0';
+				clen += 1;
+			}
+
+		}
+
+		for i in 0..clen {
+			obuf[i] = cbuf[clen - i-1];
+		}
+		let _ptr :*const u8 = obuf.as_ptr();
+
+		self._write_buffer(_ptr as *const libc::c_void,clen);
+		return;
+
+	}
+
+	fn _error_val_wide(&self, val :u64, ishex :bool ,w :usize) {
+		if self.loglvl >= ERROR_LEVEL {
+			self._val_wide(val,ishex,w);
+		}
+	}
+
+	fn _debug_val_wide(&self, val :u64, ishex :bool ,w :usize) {
+		if self.loglvl >= ERROR_LEVEL {
+			self._val_wide(val,ishex,w);
+		}
+	}
+
+
 	fn _error_write_val(&self, val :u64, ishex :bool) {
 		if self.loglvl >= ERROR_LEVEL {
-			unsafe {
-				_write_val(self.fd,val,ishex);	
-			}			
+			self._write_int_val(val,ishex);	
 		}
 	}
 
 	fn _error_file_line(&self, f :&str ,lineno :u32) {
-		if self.loglvl >= ERROR_LEVEL {
-			unsafe {
-				_write_str(self.fd,"[RSMALLOC]<ERROR>:");
-				_write_str(self.fd,"[");
-				_write_str(self.fd,f);
-				_write_str(self.fd,":");
-				_write_val(self.fd,lineno as u64, false);
-				_write_str(self.fd,"]:");
-			}
-		}
+		self._error_write_str("[RSMALLOC]<ERROR>:[");
+		self._error_write_str(f);
+		self._error_write_str(":");
+		self._error_write_val(lineno as u64, false);
+		self._error_write_str("]:");
 	}
 
 	fn _debug_file_line(&self, f :&str ,lineno :u32) {
-		if self.loglvl >= DEBUG_LEVEL {
-			unsafe {
-				_write_str(self.fd,"[RSMALLOC]<DEBUG>:");
-				_write_str(self.fd,"[");
-				_write_str(self.fd,f);
-				_write_str(self.fd,":");
-				_write_val(self.fd,lineno as u64, false);
-				_write_str(self.fd,"]:");
-			}
-		}
+		self._debug_write_str("[RSMALLOC]<DEBUG>:[");
+		self._debug_write_str(f);
+		self._debug_write_str(":");
+		self._debug_write_val(lineno as u64, false);
+		self._debug_write_str("]:");
 	}
 
 
@@ -580,6 +639,9 @@ impl StackCallAlloc {
 		if ores.is_ok() {
 			let info :MemoryInfo = ores.unwrap();
 			let mut idx :usize = 0;
+			let mut jdx :usize;
+			let mut c :u8;
+			let mut ptr :*const u8;
 			(*self.lock).lock();
 			for v in info.maps.iter() {
 				self._error_file_line(file!(),line!());
@@ -592,9 +654,33 @@ impl StackCallAlloc {
 				self._error_write_str("] [");
 				self._error_write_str(&v.mapfile);
 				self._error_write_str("]\n");
+
+
+				self._error_file_line(file!(),line!());
+				self._error_write_str("[");
+				self._error_write_str(&v.mapfile);
+				self._error_write_str("]startaddr[");
+				self._error_write_val(v.startaddr as u64, true);
+				self._error_write_str("]");
+				jdx = 0;
+				while jdx < 0x20 {
+					ptr = (v.startaddr + jdx as u64) as *const u8;
+					c = *ptr;
+					if (jdx % 0x10) == 0 {
+						self._error_write_str("\n");
+					} else {
+						self._error_write_str(" ");
+					}
+					self._error_val_wide(c as u64,true,2);
+					jdx += 1;
+				}
+				self._error_write_str("\n");
+
 				self._error_flush();
+
 				idx += 1;
 			}
+
 			(*self.lock).unlock();
 
 			return Ok(info);
@@ -644,7 +730,7 @@ impl StackCallAlloc {
 					let curback :*const libc::c_void = *((*cptr).callstack.wrapping_add(jdx));
 					self._error_file_line(file!(),line!());	
 					self._error_write_str("pointer[");
-					self._error_write_val(curback as u64,true);
+					self._error_val_wide(curback as u64,true,2);
 					self._error_write_str("] ");
 					kdx = 0;
 					let mut rptr :*const libc::c_uchar = curback as *const libc::c_uchar;
