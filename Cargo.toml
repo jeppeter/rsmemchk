@@ -21,6 +21,10 @@ path = "example/multi.rs"
 name = "extparser"
 path = "example/extparser.rs"
 
+[[example]]
+name = "arcclone"
+path = "example/arcclone.rs"
+
 
 [dependencies]
 libc = "0.2"
