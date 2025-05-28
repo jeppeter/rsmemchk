@@ -278,12 +278,14 @@ class PeMap(object):
 
 	def parse_pe(self,fname):
 		bname = os.path.basename(fname)
-		curfile = os.path.join(self.srcdir,bname)		
-		if os.path.exists(curfile) and (curfile.endwith('.exe') or curfile.endwith('.dll')):
+		curfile = os.path.join(self.srcdir,bname)	
+		logging.info('test %s'%(fname))	
+		if os.path.exists(curfile) and (curfile.endswith('.exe') or curfile.endswith('.dll')):
 			if bname not in self.petrans.keys():
 				cb = PeMapTrans(curfile)
 				retval = cb.parse_pe()
 				if retval:
+					logging.info('%s succ pe'%(bname))
 					self.petrans[bname] = cb
 
 
