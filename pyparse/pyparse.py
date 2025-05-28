@@ -310,7 +310,7 @@ def trans_pe_addr(pemap,fname,addr):
 			retaddr = addr - cb.VirtualAddress
 	else:
 		logging.info('no [%s]'%(bname))
-	logging.info('trans pe addr 0x%x'%(retaddr))
+	logging.info('trans pe addr 0x%x => 0x%x'%(addr,retaddr))
 	return retaddr
 
 
