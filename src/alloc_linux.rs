@@ -39,6 +39,7 @@ unsafe fn _get_stack_call(skip :usize,pv :*mut * mut libc::c_void,bksize :usize)
 		n <<= 1;
 	}
 
+	libc::memset(pv as *mut libc::c_void, 0, size_of::<*mut libc::c_void>() * bksize);
 	for i in SKIP_UX_BKSIZE..n {
 		if (i-SKIP_UX_BKSIZE) >= skip && (i-SKIP_UX_BKSIZE-skip) < bksize {
 			retv += 1;

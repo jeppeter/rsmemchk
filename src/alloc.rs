@@ -504,7 +504,7 @@ impl StackCallAlloc {
 			return -1;
 		}
 
-		libc::memset(backs as *mut libc::c_void, 0, size_of::<*mut libc::c_void>() * self.stacksize);
+		//libc::memset(backs as *mut libc::c_void, 0, size_of::<*mut libc::c_void>() * self.stacksize);
 		retv = _get_stack_call(0,backs,self.stacksize);
 		if retv < 0 {
 			libc::free(backs as *mut libc::c_void);
