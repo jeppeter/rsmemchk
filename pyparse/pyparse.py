@@ -6,6 +6,7 @@ import socket
 import logging
 import re
 import os
+import traceback
 from rust_demangler import demangle
 import pefile
 
@@ -258,9 +259,9 @@ class PeMapTrans(object):
 			pe = pefile.PE(self.fname)
 			for s in pe.sections:
 				if sys.version[0] == '3':
-					n = sec.Name.decode('utf-8')
+					n = s.Name.decode('utf-8')
 				else:
-					n = str(sec.Name)
+					n = str(s.Name)
 				if n == '.text':
 					self.VirtualAddress = s.VirtualAddress
 					self.PointerToRawData = s.PointerToRawData
