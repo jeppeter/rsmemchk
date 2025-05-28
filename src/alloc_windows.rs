@@ -24,7 +24,7 @@ const SKIP_WIN_BKSIZE :usize = 1;
 #[allow(unsafe_op_in_unsafe_fn)]
 unsafe fn _get_stack_call(skip :usize,pv :*mut * mut libc::c_void,bksize :usize) -> i32 {
 	let mut realbacks :*mut *mut libc::c_void = null_mut();
-	let mut n :usize = 4;
+	let mut n :usize = bksize;
 	let mut retv :i32 = 0;
 	let mut sret :WORD;
 	let mut nret :ULONG;

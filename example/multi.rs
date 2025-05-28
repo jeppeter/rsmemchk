@@ -4,7 +4,7 @@ use std::mem::ManuallyDrop;
 use std::error::Error;
 
 #[global_allocator]
-static ALLOCATOR: StackCallAllocEx = StackCallAllocEx{memsize : 23};
+static ALLOCATOR: StackCallAllocEx = StackCallAllocEx{memsize : 23,stacksize :8};
 
 #[derive(Debug)]
 struct C {

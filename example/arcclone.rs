@@ -12,7 +12,7 @@ use std::sync::Arc;
 extargs_error_class!{ArcError}
 
 #[global_allocator]
-static ALLOCATOR: StackCallAllocEx = StackCallAllocEx{memsize : 23};
+static ALLOCATOR: StackCallAllocEx = StackCallAllocEx{memsize : 23,stacksize :16};
 
 #[derive(Clone)]
 enum CFunc {
@@ -30,7 +30,23 @@ struct CInner {
 impl Drop for CInner {
 	fn drop(&mut self) {
 		println!("CInner drop");
-		self.callfuncs = Rc::new(RefCell::new(HashMap::new()));
+		loop {
+			let mut idx :usize = 0;
+			let mut ov :Option<Rc<RefCell<CFunc>>> = None;
+			for (k,v) in self.callfuncs.borrow_mut().iter() {
+				println!("k {}", k);
+				ov = self.callfuncs.borrow_mut().remove(k);
+				idx += 1;
+				break;
+			}
+
+			if idx == 0 {
+				break;
+			}
+			let c =ov.unwrap();
+			println!("rc count {}",Rc::strong_count(&c));
+			drop(c);
+		}
 	}
 }
 

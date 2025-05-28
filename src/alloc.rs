@@ -172,17 +172,18 @@ struct StackCallAlloc {
 	memlist :*mut *mut MemoryList,
 	memsize :usize,
 	loglvl : i32,
+	stacksize : usize,
 	fd :libc::c_int,
 }
 
 #[repr(C)]
 pub struct StackCallAllocEx {
 	pub memsize :usize,
+	pub stacksize :usize,
 }
 
 static mut GLBL_ALLOC :*mut StackCallAlloc = null_mut();
 
-const BACK_MEM_SIZE :usize = 8;
 
 unsafe impl Sync for StackCallAlloc {}
 unsafe impl Sync for StackCallAllocEx {}
@@ -343,13 +344,13 @@ impl StackCallAlloc {
 
 	unsafe fn _alloc_inner(&self, realptr :*mut libc::c_void, alignptr :*mut u8, layout :&Layout) -> i32 {
 		let retv :i32;
-		let backs :*mut *mut libc::c_void = libc::malloc(size_of::<*mut libc::c_void>() * BACK_MEM_SIZE) as *mut *mut libc::c_void;
+		let backs :*mut *mut libc::c_void = libc::malloc(size_of::<*mut libc::c_void>() * self.stacksize) as *mut *mut libc::c_void;
 		if backs == null_mut() {
 			return -1;
 		}
 
-		libc::memset(backs as *mut libc::c_void, 0, size_of::<*mut libc::c_void>() * BACK_MEM_SIZE);
-		retv = _get_stack_call(0,backs,BACK_MEM_SIZE);
+		libc::memset(backs as *mut libc::c_void, 0, size_of::<*mut libc::c_void>() * self.stacksize);
+		retv = _get_stack_call(0,backs,self.stacksize);
 		if retv < 0 {
 			libc::free(backs as *mut libc::c_void);
 			return -1;
@@ -365,7 +366,7 @@ impl StackCallAlloc {
 		self._debug_write_str("] align [");
 		self._debug_write_val(layout.align() as u64, true);
 		self._debug_write_str("] with backtrace [");
-		for i in 0..BACK_MEM_SIZE {
+		for i in 0..self.stacksize {
 			if i > 0 {
 				self._debug_write_str(",");
 			}
@@ -398,7 +399,7 @@ impl StackCallAlloc {
 		return 1;
 	}
 
-	pub  fn new(stacksize :usize) -> *mut StackCallAlloc {
+	pub  fn new(memsize :usize,stacksize :usize) -> *mut StackCallAlloc {
 		unsafe {
 			let retv :*mut StackCallAlloc = libc::malloc(size_of::<StackCallAlloc>()) as *mut StackCallAlloc;
 			let mut retstr :*mut libc::c_char;
@@ -454,13 +455,14 @@ impl StackCallAlloc {
 				(*retv)._error_write_str("null\n");
 			}
 
-			(*retv).memsize = stacksize;
-			(*retv).memlist = libc::malloc(size_of::<*mut MemoryList>() * stacksize) as *mut *mut MemoryList;
+			(*retv).memsize = memsize;
+			(*retv).memlist = libc::malloc(size_of::<*mut MemoryList>() * memsize) as *mut *mut MemoryList;
 			if (*retv).memlist == null_mut() {
 				Self::free_mem(retv);
 				return null_mut();
 			}
-			libc::memset((*retv).memlist as *mut libc::c_void, 0, size_of::<*mut MemoryList>() * stacksize);
+			(*retv).stacksize = stacksize;
+			libc::memset((*retv).memlist as *mut libc::c_void, 0, size_of::<*mut MemoryList>() * memsize);
 			retv			
 		}
 	}
@@ -536,7 +538,7 @@ impl StackCallAlloc {
 					self._error_write_str("] ");
 					kdx = 0;
 					let mut rptr :*const libc::c_uchar = curback as *const libc::c_uchar;
-					while kdx < 16 && ((rptr as u64) % 0x1000) != 0 {
+					while rptr != null_mut() && kdx < 16 && ((rptr as u64) % 0x1000) != 0 {
 						if kdx > 0 {
 							self._error_write_str(" ");
 						}
@@ -618,10 +620,10 @@ unsafe impl GlobalAlloc for StackCallAlloc {
 }
 
 
-fn get_allocator(memsize :usize) -> *mut StackCallAlloc {
+fn get_allocator(memsize :usize,stacksize :usize) -> *mut StackCallAlloc {
 	unsafe {
 		if GLBL_ALLOC == null_mut() {
-			GLBL_ALLOC= StackCallAlloc::new(memsize);
+			GLBL_ALLOC= StackCallAlloc::new(memsize,stacksize);
 		}
 		GLBL_ALLOC		
 	}
@@ -630,7 +632,7 @@ fn get_allocator(memsize :usize) -> *mut StackCallAlloc {
 
 impl StackCallAllocEx {
 	pub fn scan(&self) -> i32 {
-		let ptr :*mut StackCallAlloc = get_allocator(self.memsize);
+		let ptr :*mut StackCallAlloc = get_allocator(self.memsize,self.stacksize);
 		if ptr == null_mut() {
 			return 0;
 		}
@@ -640,7 +642,7 @@ impl StackCallAllocEx {
 	}
 
 	pub fn get_memory_info(&self) -> Result<MemoryInfo,Box<dyn Error>> {
-		let ptr :*mut StackCallAlloc = get_allocator(self.memsize);
+		let ptr :*mut StackCallAlloc = get_allocator(self.memsize,self.stacksize);
 		if ptr == null_mut() {
 			rsmalloc_new_error!{RsAllocError,"can not get StackCallAlloc"}
 		}
@@ -653,7 +655,7 @@ impl StackCallAllocEx {
 #[allow(unsafe_op_in_unsafe_fn)]
 unsafe impl GlobalAlloc for StackCallAllocEx {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-    	let ptr :*mut StackCallAlloc = get_allocator(self.memsize);
+    	let ptr :*mut StackCallAlloc = get_allocator(self.memsize,self.stacksize);
     	if ptr == null_mut() {
     		return null_mut();
     	}
@@ -662,7 +664,7 @@ unsafe impl GlobalAlloc for StackCallAllocEx {
 
 
     unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
-    	let ptr :*mut StackCallAlloc = get_allocator(self.memsize);
+    	let ptr :*mut StackCallAlloc = get_allocator(self.memsize,self.stacksize);
     	if ptr == null_mut() {
     		return;
     	}

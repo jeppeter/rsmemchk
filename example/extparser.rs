@@ -34,7 +34,7 @@ use rsmalloc::{StackCallAllocEx,MemoryInfo};
 
 
 #[global_allocator]
-static ALLOCATOR: StackCallAllocEx = StackCallAllocEx{memsize : 307};
+static ALLOCATOR: StackCallAllocEx = StackCallAllocEx{memsize : 307,stacksize:16};
 
 
 extargs_error_class!{ExtParserError}

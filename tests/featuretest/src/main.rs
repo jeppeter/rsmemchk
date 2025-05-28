@@ -6,7 +6,7 @@ use std::error::Error;
 
 #[cfg(feature="rsmalloc_mode")]
 #[global_allocator]
-static ALLOCATOR: StackCallAllocEx = StackCallAllocEx{memsize : 23};
+static ALLOCATOR: StackCallAllocEx = StackCallAllocEx{memsize : 23, stacksize : 8};
 
 #[derive(Debug)]
 struct C {
