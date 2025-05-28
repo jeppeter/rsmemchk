@@ -5,8 +5,10 @@ edition = "2021"
 
 [dev-dependencies]
 rsmalloc = {path = "."}
-extargsparse_worker = "^0.2.2"
-extargsparse_codegen = "^0.1.4"
+#extargsparse_worker = "^0.2.2"
+#extargsparse_codegen = "^0.1.4"
+extargsparse_worker = {path = "../extargsparse-rs/extargsparse_worker"}
+extargsparse_codegen = {path = "../extargsparse-rs/extargsparse_codegen"}
 
 
 [[example]]
