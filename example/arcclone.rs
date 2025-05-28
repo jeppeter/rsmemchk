@@ -112,8 +112,11 @@ impl C {
 
 fn main() -> Result<(),Box<dyn Error>> {
 	let c :C = C::new(32)?;
+	let b = c.clone();
 	c.call_load("hello","new")?;
 	drop(c);
+	b.call_load("hello","world")?;
+	drop(b);
 	ALLOCATOR.scan();
 	let _maps :MemoryInfo = ALLOCATOR.get_memory_info()?;
 	Ok(())
