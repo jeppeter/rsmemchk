@@ -495,6 +495,7 @@ impl StackCallAlloc {
 	pub unsafe fn scan(&self) -> i32 {
 		let mut idx :usize;
 		let mut jdx :usize;
+		let mut kdx :usize;
 		let mut errcnt :i32 = 0;
 		(*self.lock).lock();
 		idx = 0;
@@ -525,6 +526,28 @@ impl StackCallAlloc {
 					jdx += 1;
 				}
 				self._error_write_str("]\n");
+				/*now to get the stack pointer*/
+				jdx = 0;				
+				while jdx < (*cptr).callsize {
+					let curback :*const libc::c_void = *((*cptr).callstack.wrapping_add(jdx));
+					self._error_file_line(file!(),line!());	
+					self._error_write_str("pointer[");
+					self._error_write_val(curback as u64,true);
+					self._error_write_str("] ");
+					kdx = 0;
+					let mut rptr :*const libc::c_uchar = curback as *const libc::c_uchar;
+					while kdx < 16 && ((rptr as u64) % 0x1000) != 0 {
+						if kdx > 0 {
+							self._error_write_str(" ");
+						}
+						self._error_write_val(*rptr as u64, true);
+						rptr = rptr.wrapping_add(1);
+						kdx += 1;
+					}
+					self._error_write_str("\n");
+
+					jdx += 1;
+				}
 				errcnt += 1;
 				cptr = (*cptr).next;
 			}

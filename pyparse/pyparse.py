@@ -101,18 +101,42 @@ class MemoryMap(object):
 
 class MemoryInfo(object):
 	def __init__(self):
-		self.maps = []
+		self.addrs  = dict()
+		self.filemap = dict()
 		return
 
 	def append_map(self,saddr, eaddr, mapfile):
+		if mapfile not in self.filemap.keys():
+			logging.info('create %s'%(mapfile))
+			self.filemap[mapfile] = []
 		mp = MemoryMap(saddr,eaddr,mapfile)
-		self.maps.append(mp)
+		logging.info('append %s [0x%x,0x%x]'%(mapfile,saddr,eaddr))
+		self.filemap[mapfile].append(mp)
 		return
+
+	def calc_map(self):
+		self.addrs = dict()
+		for k in self.filemap.keys():
+			mps = self.filemap[k]
+			if len(mps) > 0:
+				saddr = mps[0].startaddr
+				eaddr = mps[-1].endaddr
+				self.addrs[k] = MemoryMap(saddr,eaddr,k)
+
 	def search_addr(self,addr):
-		for m in self.maps:
-			if addr >= m.startaddr and addr <= m.endaddr:
-				return m.mapfile, addr - m.startaddr
+		for k in self.addrs.keys():
+			if addr >= self.addrs[k].startaddr and addr <= self.addrs[k].endaddr:
+				#logging.info('search [%s]'%(k))
+				offaddr = 0
+				mps = self.filemap[k]
+				idx = 0
+				while idx < len(mps):
+					if mps[idx].startaddr <= addr and mps[idx].endaddr >= addr:
+						return k,(offaddr + addr - mps[idx].startaddr)
+					offaddr += mps[idx].endaddr - mps[idx].startaddr + 1
+					idx += 1
 		return None,None
+
 
 
 class ObjDumpAsm(object):
@@ -284,6 +308,7 @@ def memlistparse_handler(args,parser):
 	if args.srcdir is not None:
 		asmmap = ObjDumpMap(args.srcdir)
 	if len(memleak.keys()) > 0:
+		meminfo.calc_map()
 		# now to search for call stack
 		for k in memleak.keys():
 			curleak = memleak[k]
