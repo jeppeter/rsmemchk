@@ -7,6 +7,7 @@ import logging
 import re
 import os
 import traceback
+import struct
 from rust_demangler import demangle
 import pefile
 
@@ -259,9 +260,17 @@ class PeMapTrans(object):
 			pe = pefile.PE(self.fname)
 			for s in pe.sections:
 				if sys.version[0] == '3':
-					n = s.Name.decode('utf-8')
+					nb = b''
+					idx = 0
+					while idx < len(s.Name):
+						if s.Name[idx] == 0x0:
+							break
+						nb += struct.pack('B',s.Name[idx])
+						idx += 1
+					n = nb.decode('utf-8')
 				else:
 					n = str(s.Name)
+				logging.info('n [%s]'%(n))
 				if n == '.text':
 					self.VirtualAddress = s.VirtualAddress
 					self.PointerToRawData = s.PointerToRawData
@@ -269,6 +278,7 @@ class PeMapTrans(object):
 		except:
 			logging.error('%s'%(traceback.format_exc()))
 			return False
+		logging.info('%s False'%(self.fname))
 		return False
 
 class PeMap(object):
@@ -280,7 +290,7 @@ class PeMap(object):
 	def parse_pe(self,fname):
 		bname = os.path.basename(fname)
 		curfile = os.path.join(self.srcdir,bname)	
-		logging.info('test %s'%(fname))	
+		logging.info('test %s'%(curfile))
 		if os.path.exists(curfile) and (curfile.endswith('.exe') or curfile.endswith('.dll')):
 			if bname not in self.petrans.keys():
 				cb = PeMapTrans(curfile)
@@ -319,6 +329,8 @@ def memlistparse_handler(args,parser):
 	memlistafter = False
 	for l in fd.fh:
 		lindex += 1
+		if (lindex % 1000) == 0:
+			logging.info('%d'%(lindex))
 		l = l.rstrip('\r\n')
 		if rsmallocexpr.match(l):
 			# to test for the memlist
@@ -408,6 +420,13 @@ def readpe_handler(args,parser):
 	sys.exit(0)
 	return
 
+def parsepe_handler(args,parser):
+	set_logging(args)
+	pemap = PeMap(args.srcdir)
+	for f in args.subnargs:
+		cb = PeMapTrans(f)
+		pemap.parse_pe(f)
+	sys.exit(0)
 
 def main():
     commandline='''
@@ -419,6 +438,9 @@ def main():
         	"$" : 0
         },
         "readpe<readpe_handler>##file ... to parse pe##" : {
+        	"$" : "+"
+        },
+        "parsepe<parsepe_handler>##file ... to parse pe##" : {
         	"$" : "+"
         }
     }
