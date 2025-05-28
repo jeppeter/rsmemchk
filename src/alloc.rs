@@ -36,6 +36,8 @@ impl MemoryInfo {
 	}
 }
 
+const WBUF_SIZE :usize = 256;
+
 rsmalloc_error_class!{RsAllocError}
 
 #[cfg(target_os = "windows")]
@@ -173,6 +175,10 @@ struct StackCallAlloc {
 	memsize :usize,
 	loglvl : i32,
 	stacksize : usize,
+	wbuf :*mut libc::c_void,
+	eidx :*mut usize,
+	eidxn :usize,
+	wsize :usize,
 	fd :libc::c_int,
 }
 
@@ -213,6 +219,12 @@ impl StackCallAlloc {
 				libc::close((*ptr).fd);
 			}
 			(*ptr).fd = -1;
+			if (*ptr).wbuf != null_mut() {
+				libc::free((*ptr).wbuf);
+			}
+			(*ptr).wbuf = null_mut();
+			(*ptr).wsize = 0;
+			(*(*ptr).eidx) = 0;
 			AllocLock::free_mem((&(*ptr)).lock);
 			(*ptr).lock = null_mut();
 		}
@@ -223,20 +235,103 @@ impl StackCallAlloc {
 		return (val % self.memsize as u64) as usize;
 	}
 
+	fn _write_buffer(&self,s :*const libc::c_void,sz :usize )  {
+		unsafe {
+			if (sz + (*self.eidx)) >= self.wsize {
+				self._flush_buffer();
+			}			
+			let _ptr :*mut libc::c_void = self.wbuf.wrapping_add(*self.eidx);
+			libc::memcpy(_ptr,s, sz);
+			(*self.eidx) += sz;	
+		}		
+		return;
+	}
+
+	fn _write_str_val(&self, s :&str) {
+		let _ptr :*const libc::c_void = s.as_bytes().as_ptr() as *const libc::c_void;
+		let _sz :usize = s.len();
+		self._write_buffer(_ptr,_sz);
+	}
+
+	fn _write_int_val(&self,val :u64, ishex :bool) {
+		let mut cbuf :[u8;32] = [0;32];
+		let mut clen :usize = 0;
+		let mut obuf :[u8;32] = [0;32];
+		let mut cval :u64 = val;
+
+		if ishex {
+			while cval > 0 {
+				let curval :u8 = (cval & 0xf) as u8;
+				if  curval <= 9 {
+					cbuf[clen] = b'0' + curval;
+				} else {
+					cbuf[clen] = b'a' + (curval - 10);
+				}
+				clen += 1;
+				cval >>= 4;
+			}
+
+			if clen == 0 {
+				cbuf[clen] = b'0';
+				clen += 1;
+			}
+
+			cbuf[clen] = b'x';
+			clen += 1;
+			cbuf[clen] = b'0';
+			clen += 1
+		} else {
+			while cval > 0 {
+				let curval :u8 = (cval % 10) as u8;
+				cbuf[clen] = b'0' + curval;
+				clen += 1;
+				cval = cval / 10;
+			}
+			if clen == 0 {
+				cbuf[clen] = b'0';
+				clen += 1;
+			}
+		}
+
+		for i in 0..clen {
+			obuf[i] = cbuf[clen - i-1];
+		}
+		let _ptr :*const u8 = obuf.as_ptr();
+
+		self._write_buffer(_ptr as *const libc::c_void,clen);
+		return;
+	}
+
 	fn _debug_write_str(&self,s :&str) {
 		if self.loglvl >= DEBUG_LEVEL {
-			unsafe {
-				_write_str(self.fd,s);	
-			}
-			
+			self._write_str_val(s);			
 		}		
 	}
 
 	fn _debug_write_val(&self, val :u64 , ishex:bool) {
 		if self.loglvl >= DEBUG_LEVEL {
-			unsafe {
-				_write_val(self.fd,val,ishex);	
-			}			
+			self._write_int_val(val,ishex);	
+		}
+	}
+
+	fn _flush_buffer(&self) {
+		unsafe {
+			if (*self.eidx) > 0 {
+				_write_func(self.fd,self.wbuf, (*self.eidx) as u32 );
+			}
+			(*self.eidx) = 0;			
+		}
+	}
+
+	fn _debug_flush(&self) { 
+		if self.loglvl >= DEBUG_LEVEL {
+			self._flush_buffer();
+		}
+	}
+
+	fn _error_flush(&self) {
+		if self.loglvl >= ERROR_LEVEL {
+			self._flush_buffer();
 		}
 	}
 
@@ -332,6 +427,7 @@ impl StackCallAlloc {
 						jdx += 1;
 					}
 					self._debug_write_str("]\n");
+					self._debug_flush();
 					(*pcur).next = null_mut();
 					libc::free((*pcur).realptr);
 					(*pcur).realptr = null_mut();
@@ -373,6 +469,7 @@ impl StackCallAlloc {
 			self._debug_write_val(*backs.wrapping_add(i) as u64, true);
 		}
 		self._debug_write_str("]\n");
+		self._debug_flush();
 
 
 		let meml :*mut MemoryList = MemoryList::new(backs as *mut *const libc::c_void,retv as usize);
@@ -408,6 +505,14 @@ impl StackCallAlloc {
 			}
 
 			libc::memset(retv as *mut libc::c_void, 0, size_of::<StackCallAlloc>());
+			(*retv).wsize = WBUF_SIZE;
+			(*retv).eidx = &mut (*retv).eidxn as *mut usize;
+			(*retv).wbuf = libc::malloc((*retv).wsize);
+			if (*retv).wbuf == null_mut() {
+				StackCallAlloc::free_mem(retv);
+				return null_mut();
+			}
+			libc::memset((*retv).wbuf, 0, (*retv).wsize);
 
 			(*retv).lock = AllocLock::new();
 			if (*retv).lock == null_mut() {
@@ -446,6 +551,7 @@ impl StackCallAlloc {
 				(*retv)._error_write_str(":");
 				(*retv)._error_write_val(_fd as u64, true);
 				(*retv)._error_write_str("]\n");
+				(*retv)._error_flush();
 				
 				if _fd >= 0 {
 					(*retv).fd = _fd;
@@ -453,7 +559,9 @@ impl StackCallAlloc {
 				}
 			} else {
 				(*retv)._error_write_str("null\n");
+				(*retv)._error_flush();
 			}
+			
 
 			(*retv).memsize = memsize;
 			(*retv).memlist = libc::malloc(size_of::<*mut MemoryList>() * memsize) as *mut *mut MemoryList;
@@ -484,6 +592,7 @@ impl StackCallAlloc {
 				self._error_write_str("] [");
 				self._error_write_str(&v.mapfile);
 				self._error_write_str("]\n");
+				self._error_flush();
 				idx += 1;
 			}
 			(*self.lock).unlock();
@@ -528,6 +637,7 @@ impl StackCallAlloc {
 					jdx += 1;
 				}
 				self._error_write_str("]\n");
+				self._error_flush();
 				/*now to get the stack pointer*/
 				jdx = 0;				
 				while jdx < (*cptr).callsize {
@@ -550,6 +660,7 @@ impl StackCallAlloc {
 
 					jdx += 1;
 				}
+				self._error_flush();
 				errcnt += 1;
 				cptr = (*cptr).next;
 			}
@@ -564,59 +675,60 @@ impl StackCallAlloc {
 
 #[allow(unsafe_op_in_unsafe_fn)]
 unsafe impl GlobalAlloc for StackCallAlloc {
-    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-    	let ptr :*mut libc::c_void ;
-    	let retptr :*mut u8;
-    	let mut addr :u64;
-    	let mut allsize :usize;
-    	let retv :i32;
-    	allsize = layout.size();
-    	if layout.align() > 0 {
-    		allsize += layout.align() as usize - 1;	
-    	}
-    	
-    	ptr = libc::malloc(allsize);
-    	if ptr == null_mut() {
-    		return null_mut();
-    	}
+	unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+		let ptr :*mut libc::c_void ;
+		let retptr :*mut u8;
+		let mut addr :u64;
+		let mut allsize :usize;
+		let retv :i32;
+		allsize = layout.size();
+		if layout.align() > 0 {
+			allsize += layout.align() as usize - 1;	
+		}
 
-    	addr = ptr as u64;
-    	if layout.align() > 1 {
-	    	addr += layout.align() as u64 - 1;
-	    	addr &= !(layout.align() as u64 - 1);
-    	}
-    	retptr = addr as *mut u8;
-    	(*self.lock).lock();
-    	retv = self._alloc_inner(ptr,retptr,&layout);
-    	(*self.lock).unlock();
+		ptr = libc::malloc(allsize);
+		if ptr == null_mut() {
+			return null_mut();
+		}
 
-    	if retv < 0 {
-    		/*not insert*/
-    		libc::free(ptr);
-    		return null_mut();
-    	}
+		addr = ptr as u64;
+		if layout.align() > 1 {
+			addr += layout.align() as u64 - 1;
+			addr &= !(layout.align() as u64 - 1);
+		}
+		retptr = addr as *mut u8;
+		(*self.lock).lock();
+		retv = self._alloc_inner(ptr,retptr,&layout);
+		(*self.lock).unlock();
 
-    	retptr
-    }
+		if retv < 0 {
+			/*not insert*/
+			libc::free(ptr);
+			return null_mut();
+		}
+
+		retptr
+	}
 
 
-    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
-    	let retv :i32;
-    	(*self.lock).lock();
-    	retv=  self._dealloc_inner(_ptr,_layout);
-    	if retv == 0 {
-    		(*self)._error_file_line(file!(),line!());
-    		(*self)._error_write_str("missing ptr[");
-    		(*self)._error_write_val(_ptr as u64, true);
-    		(*self)._error_write_str("]\n");    		
-    	}
-    	(*self.lock).unlock();
-    	if retv == 0 {
-    		libc::free(_ptr as *mut libc::c_void);
-    	}
-    	return;
+	unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
+		let retv :i32;
+		(*self.lock).lock();
+		retv=  self._dealloc_inner(_ptr,_layout);
+		if retv == 0 {
+			(*self)._error_file_line(file!(),line!());
+			(*self)._error_write_str("missing ptr[");
+			(*self)._error_write_val(_ptr as u64, true);
+			(*self)._error_write_str("]\n");
+			(*self)._error_flush();
+		}
+		(*self.lock).unlock();
+		if retv == 0 {
+			libc::free(_ptr as *mut libc::c_void);
+		}
+		return;
 
-    }
+	}
 }
 
 
@@ -654,21 +766,21 @@ impl StackCallAllocEx {
 
 #[allow(unsafe_op_in_unsafe_fn)]
 unsafe impl GlobalAlloc for StackCallAllocEx {
-    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-    	let ptr :*mut StackCallAlloc = get_allocator(self.memsize,self.stacksize);
-    	if ptr == null_mut() {
-    		return null_mut();
-    	}
-    	return (*ptr).alloc(layout);
-    }
+	unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+		let ptr :*mut StackCallAlloc = get_allocator(self.memsize,self.stacksize);
+		if ptr == null_mut() {
+			return null_mut();
+		}
+		return (*ptr).alloc(layout);
+	}
 
 
-    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
-    	let ptr :*mut StackCallAlloc = get_allocator(self.memsize,self.stacksize);
-    	if ptr == null_mut() {
-    		return;
-    	}
-    	return (*ptr).dealloc(_ptr,_layout);
-    	
-    }
+	unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
+		let ptr :*mut StackCallAlloc = get_allocator(self.memsize,self.stacksize);
+		if ptr == null_mut() {
+			return;
+		}
+		return (*ptr).dealloc(_ptr,_layout);
+
+	}
 }
