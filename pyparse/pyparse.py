@@ -253,6 +253,7 @@ class PeMapTrans(object):
 		self.fname = f
 		self.VirtualAddress = None
 		self.PointerToRawData = None
+		self.ImageBase = None
 		return
 
 	def parse_pe(self):
@@ -271,9 +272,11 @@ class PeMapTrans(object):
 				else:
 					n = str(s.Name)
 				logging.info('n [%s]'%(n))
+				logging.info('%s'%(s))
 				if n == '.text':
 					self.VirtualAddress = s.VirtualAddress
 					self.PointerToRawData = s.PointerToRawData
+					self.ImageBase = pe.OPTIONAL_HEADER.ImageBase
 					return True
 		except:
 			logging.error('%s'%(traceback.format_exc()))
@@ -307,7 +310,7 @@ def trans_pe_addr(pemap,fname,addr):
 		logging.info('find %s'%(bname))
 		cb = pemap.petrans[bname]
 		if cb.VirtualAddress is not None and  cb.PointerToRawData is not None:
-			retaddr = addr - cb.VirtualAddress
+			retaddr = addr + cb.ImageBase
 	else:
 		logging.info('no [%s]'%(bname))
 	logging.info('trans pe addr 0x%x => 0x%x'%(addr,retaddr))
