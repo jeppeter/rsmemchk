@@ -5,7 +5,10 @@ edition = "2024"
 
 [dependencies]
 rsmalloc = {path = "../../"}
-
+extargsparse_worker = "^0.2.4"
+extargsparse_codegen = "^0.1.4"
+#extargsparse_worker = {path = "../../../extargsparse-rs/extargsparse_worker"}
+#extargsparse_codegen = {path = "../../../extargsparse-rs/extargsparse_codegen"}
 
 [features]
 rsmalloc_mode = []
