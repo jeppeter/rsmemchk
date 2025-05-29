@@ -9,20 +9,9 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::sync::Arc;
 use std::cell::UnsafeCell;
+use caller::{call_function,cc_func};
+use rsmalloc::{cfg_rsmalloc_not_inline};
 
-
-macro_rules! cfg_rsmalloc {
-	($($item:item)*) => {
-		$(
-			#[cfg(feature="rsmalloc_mode")]
-			#[inline(never)]
-			$item
-
-			#[cfg(not(feature="rsmalloc_mode"))]
-			$item
-			)*
-	}
-}
 
 extargs_error_class!{ArcError}
 
@@ -94,7 +83,7 @@ impl Drop for C {
 
 
 impl C {
-	cfg_rsmalloc !{
+	cfg_rsmalloc_not_inline !{
 		fn new(val :i32) -> Result<Self,Box<dyn Error>> {
 			Ok(Self {
 				inner : Rc::new(RefCell::new(CInner::new(val)?)),
@@ -108,7 +97,7 @@ impl C {
 }
 
 impl CInner {
-	cfg_rsmalloc !{
+	cfg_rsmalloc_not_inline !{
 		fn _add_funcs(&mut self) -> Result<(),Box<dyn Error>> {
 			let b = Arc::new(UnsafeCell::new(self.clone()));
 			let mut bmut =  self.callfuncs.borrow_mut();
@@ -163,7 +152,7 @@ impl CInner {
 }
 
 
-cfg_rsmalloc! {
+cfg_rsmalloc_not_inline! {
 
 
 
@@ -220,7 +209,8 @@ fn main() -> Result<(),Box<dyn Error>> {
 	b.call_load("hello","world")?;
 	drop(b);
 
-
+	call_function("cc");
+	cc_func("used");
 
 	#[cfg(feature="rsmalloc_mode")]
 	ALLOCATOR.scan();
