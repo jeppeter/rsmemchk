@@ -6,7 +6,7 @@ description = """
 Rust Memory Leak check library for global_allocator
 """
 license = "MIT/Apache-2.0"
-
+repository = "https://github.com/jeppeter/rsmemchk"
 
 [dev-dependencies]
 rsmemchk = {path = "."}
