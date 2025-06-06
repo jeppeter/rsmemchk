@@ -8,9 +8,11 @@ use crate::*;
 #[allow(unused_imports)]
 use crate::logger::*;
 
+
 pub struct MemoryMap {
 	pub startaddr :u64,
 	pub endaddr :u64,
+	pub protect :u32,
 	pub mapfile :String,
 }
 
@@ -18,11 +20,42 @@ pub struct MemoryInfo {
 	pub maps :Vec<MemoryMap>,
 }
 
+pub fn protect_str(prot :u32) -> String {
+	let mut retv :String = "".to_string();
+	if (prot & MEM_READ) != 0 {
+		if retv.len() > 0 {
+			retv.push_str("|");
+		}
+		retv.push_str("MEM_READ");
+	}
+
+	if (prot & MEM_WRITE) != 0 {
+		if retv.len() > 0 {
+			retv.push_str("|");
+		}
+		retv.push_str("MEM_WRITE");
+	}
+
+	if (prot & MEM_EXEC) != 0 {
+		if retv.len() > 0 {
+			retv.push_str("|");
+		}
+		retv.push_str("MEM_EXEC");
+	}
+
+	if retv.len() == 0 {
+		retv.push_str("NOACCESS");
+	}
+	return retv;
+
+}
+
 impl MemoryMap {
 	pub fn new() -> Self {
 		Self {
 			startaddr : 0,
 			endaddr :0,
+			protect :0,
 			mapfile : format!(""),
 		}
 	}
@@ -663,7 +696,7 @@ impl StackCallAlloc {
 				self._error_write_val(v.startaddr as u64, true);
 				self._error_write_str("]");
 				jdx = 0;
-				while jdx < 0x20 {
+				while jdx < 0x20 && (v.protect & MEM_READ) != 0 {
 					ptr = (v.startaddr + jdx as u64) as *const u8;
 					c = *ptr;
 					if (jdx % 0x10) == 0 {

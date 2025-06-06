@@ -1,5 +1,5 @@
 
-use rsmalloc::{StackCallAllocEx,MemoryInfo};
+use rsmalloc::{StackCallAllocEx,MemoryInfo,protect_str};
 use std::mem::ManuallyDrop;
 use std::error::Error;
 
@@ -65,7 +65,7 @@ fn main() -> Result<(),Box<dyn Error>> {
 	ALLOCATOR.scan();
 	let maps :MemoryInfo = ALLOCATOR.get_memory_info()?;
 	for v in maps.maps.iter() {
-		println!("0x{:x} - 0x{:x} [{}]", v.startaddr,v.endaddr,v.mapfile);
+		println!("0x{:x} - 0x{:x} {} [{}] ", v.startaddr,v.endaddr,protect_str(v.protect),v.mapfile);
 	}
 	Ok(())
 }

@@ -127,6 +127,40 @@ unsafe fn get_len(bstr :&[u8;FNAME_SIZE]) -> u32 {
 	return idx as u32;
 }
 
+fn _get_prot(val :u32) -> u32 {
+	match val {
+		0|8 |16 | 24 => {
+			return 0;
+		},
+		1|9 | 17 | 25 => {
+			return MEM_READ;
+		},
+		2|10 | 18 | 26 => {
+			return MEM_EXEC;
+		},
+		3|11 | 19 | 27=> {
+			return MEM_WRITE|MEM_READ;
+		},
+		4|12 | 20 | 28=> {
+			return MEM_WRITE|MEM_READ;
+		},
+		5|13 | 21 | 29=> {
+			return MEM_WRITE|MEM_READ;	
+		},
+		6|14 | 22 | 30=> {
+			return MEM_WRITE|MEM_READ|MEM_EXEC;
+		},
+		7|15 | 23 | 31=> {
+			return MEM_WRITE|MEM_READ|MEM_EXEC;	
+		},
+		_ => {
+			return 0;
+		}
+	}
+}
+
+
+
 #[allow(unused_assignments)]
 #[allow(unused_mut)]
 unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
@@ -143,6 +177,7 @@ unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 	let mut sret :DWORD;
 	let mut cptr :*mut i8 = null_mut();
 	let mut sptr :*const i8;
+	let mut lastprotect :u32 = 0;
 
 	//pid = GetCurrentProcessId();
 
@@ -178,12 +213,14 @@ unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 	for i in 0..(*cinfo).NumberOfEntries {
 		let cblock :*const PSAPI_WORKING_SET_BLOCK = wkset.wrapping_add(i) as *const PSAPI_WORKING_SET_BLOCK;
 		let curpage :u64 = ((*cblock).Flags >> 12) as u64;
+		let curprot :u32 = _get_prot(((*cblock).Flags & 0x1f) as u32);
 		rsmalloc_debug_buffer_trace!(cblock, size_of::<PSAPI_WORKING_SET_BLOCK>(), "{} cblock VirtualPage 0x{:x}",i,curpage);
 		if i == 0 {
 			saddr = (curpage as u64) << WIN_PAGE_SHIFT;
 			lastpage = curpage as u64;
 			curmap = MemoryMap::new();
 			curmap.startaddr = saddr;
+			curmap.protect = curprot;
 			cptr = (&mut filename) as *mut i8;
 			libc::memset(cptr as *mut libc::c_void,0, FNAME_SIZE);
 			cptr = (&mut filename) as *mut i8;
@@ -201,7 +238,7 @@ unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 			}
 		} else {
 			saddr = (curpage as u64) << WIN_PAGE_SHIFT;
-			if (lastpage+1) == curpage as u64 {
+			if (lastpage+1) == curpage as u64 && lastprotect == curprot {
 				cptr = &mut filename as *mut i8;
 				sret = GetMappedFileNameA(hproc,saddr as LPVOID,cptr,FNAME_SIZE as u32);
 				rsmalloc_log_trace!("[{}]saddr 0x{:x} sret {}",i, saddr, sret);
@@ -211,6 +248,7 @@ unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 						retinfo.maps.push(curmap);
 						curmap = MemoryMap::new();
 						curmap.startaddr = saddr;
+						curmap.protect = curprot;
 						cptr = ((&mut storefilename) as *mut u8) as *mut i8;
 						libc::memset(cptr as *mut libc::c_void,0,FNAME_SIZE);						
 					}
@@ -221,6 +259,7 @@ unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 						retinfo.maps.push(curmap);
 						curmap = MemoryMap::new();
 						curmap.startaddr = saddr;
+						curmap.protect = curprot;
 						cptr = (&mut storefilename as *mut u8 ) as *mut i8;
 						sptr = &filename as *const i8;
 						libc::memcpy(cptr as *mut libc::c_void,sptr as *const libc::c_void,FNAME_SIZE);
@@ -233,6 +272,7 @@ unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 				retinfo.maps.push(curmap);
 				curmap = MemoryMap::new();
 				curmap.startaddr = saddr;
+				curmap.protect = curprot;
 				sret = GetMappedFileNameA(hproc,saddr as LPVOID,cptr,FNAME_SIZE as u32);
 				rsmalloc_log_trace!("[{}]saddr 0x{:x} sret {}",i, saddr, sret);
 				if sret == 0 {
@@ -249,6 +289,7 @@ unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 			}
 			lastpage = curpage as u64;
 		}
+		lastprotect = curprot;
 	}
 
 	libc::free(cinfo as *mut libc::c_void);

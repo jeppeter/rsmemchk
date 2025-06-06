@@ -2,6 +2,7 @@
 mod errors;
 mod logger;
 mod alloc;
+pub mod consts;
 
 #[macro_export]
 macro_rules! cfg_rsmalloc_not_inline {
@@ -18,4 +19,5 @@ macro_rules! cfg_rsmalloc_not_inline {
 }
 
 
-pub use alloc::{StackCallAllocEx,MemoryInfo,MemoryMap};
+pub use alloc::{StackCallAllocEx,MemoryInfo,MemoryMap,protect_str};
+pub use consts::{MEM_READ,MEM_WRITE,MEM_EXEC};

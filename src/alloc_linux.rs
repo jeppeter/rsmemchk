@@ -164,6 +164,7 @@ unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 	let mut retinfo :MemoryInfo = MemoryInfo::new();
 	let mut curmap :MemoryMap;
 	let mut curs :String;
+
 	if ores.is_err() {
 		rsmalloc_new_error!{RsAllocError,"[{}] compile error {:?}", regstr, ores.err().unwrap()}
 	}
@@ -178,6 +179,21 @@ unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 				curmap.startaddr = _parse_u64(&curs)?;
 				curs = format!("0x{}",cap.get(2).map_or("", |m| m.as_str()));
 				curmap.endaddr = _parse_u64(&curs)? - 1;
+
+				curs = format!("0x{}",cap.get(3).map_or("", |m| m.as_str()));
+				let curb :&[u8] = curs.as_bytes();
+				let mut idx:usize = 0;
+				while idx < curb.len() {
+					if curb[idx] == b'r' {
+						curmap.protect |= MEM_READ;
+					} else if curb[idx] == b'w' {
+						curmap.protect |= MEM_WRITE;
+					} else if curb[idx] == b'x' {
+						curmap.protect |= MEM_EXEC;
+					}
+					idx += 1;
+				}
+
 				if cap[8].len() > 0 {
 					let curs = format!("{}",cap.get(8).map_or("", |m| m.as_str()));
 					if curs.as_bytes()[0] == '/' as u8 {
