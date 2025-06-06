@@ -245,16 +245,28 @@ fn main() -> Result<(),Box<dyn Error>> {
 }
 ```
 
+> build commands
+```shell
+cargo build --release --features rsmemchk_mode
+```
+
 > you can specified 
 ```shell
-RSMEMCHK_LOGLEVEL=50 
-RSMEMCHK_LOGFILE=/home/user/mem.log
+set RSMEMCHK_LOGLEVEL=50 
+set RSMEMCHK_LOGFILE=/home/user/mem.log
+# in linux
+export RSMEMCHK_LOGLEVEL=50 
+export RSMEMCHK_LOGFILE=/home/user/mem.log
 ```
 > call
 ```shell
 ./featuretest
 objdump -D ./featuretest.exe > $srcdir/featuretest.exe.asm
 cp ./featuretest.exe $srcdir/featuretest.exe
+# in linux
+objdump -D ./featuretest > $srcdir/featuretest.asm
+cp ./featuretest $srcdir/featuretest
+
 python pyparse/pyparse.py memlistparse -i /home/user/mem.log --srcdir $srcdir
 ```
 > output
