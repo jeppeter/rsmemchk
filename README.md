@@ -258,7 +258,12 @@ set RSMEMCHK_LOGFILE=c:\mem.log
 export RSMEMCHK_LOGLEVEL=50 
 export RSMEMCHK_LOGFILE=/home/user/mem.log
 ```
-> call
+> for call pyparse.py please
+```shell
+python -m pip install extargsparse pefile
+```
+
+> call dump
 ```shell
 ./featuretest
 objdump -D ./featuretest.exe > $srcdir/featuretest.exe.asm
