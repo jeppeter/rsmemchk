@@ -5,6 +5,7 @@
 * Jun 6th 2025 to release 0.1.0 for first version
 
 ### examples
+> Cargo.toml
 ```cargo
 [package]
 name = "featuretest"
@@ -244,11 +245,19 @@ fn main() -> Result<(),Box<dyn Error>> {
 }
 ```
 
-> you can specified RSMEMCHK_LOGLEVEL=50 RSMEMCHK_LOGFILE=/home/user/mem.log
-> call ./featuretest
-> objdump -D ./featuretest.exe > $srcdir/featuretest.exe.asm
-> cp ./featuretest.exe $srcdir/featuretest.exe
-> call python pyparse/pyparse.py memlistparse -i /home/user/mem.log --srcdir $srcdir
+> you can specified 
+```shell
+RSMEMCHK_LOGLEVEL=50 
+RSMEMCHK_LOGFILE=/home/user/mem.log
+```
+> call
+```shell
+./featuretest
+objdump -D ./featuretest.exe > $srcdir/featuretest.exe.asm
+cp ./featuretest.exe $srcdir/featuretest.exe
+python pyparse/pyparse.py memlistparse -i /home/user/mem.log --srcdir $srcdir
+```
+> output
 ```shell
 alignptr[0x7aa6f0]realptr[0x7aa6f0]size[0x40]
     \Device\Mup\127.0.0.1\zdisk\rsmalloc\tests\featuretest\target\release\featuretest.exe +0x14000496b alloc::raw_vec::finish_grow::h2a921670d6cd8154 +0x3b
