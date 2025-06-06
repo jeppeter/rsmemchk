@@ -180,7 +180,7 @@ unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 				curs = format!("0x{}",cap.get(2).map_or("", |m| m.as_str()));
 				curmap.endaddr = _parse_u64(&curs)? - 1;
 
-				curs = format!("0x{}",cap.get(3).map_or("", |m| m.as_str()));
+				curs = format!("{}",cap.get(3).map_or("", |m| m.as_str()));
 				let curb :&[u8] = curs.as_bytes();
 				let mut idx:usize = 0;
 				while idx < curb.len() {

@@ -326,8 +326,8 @@ macro_rules! rsmemchk_debug_buffer_debug {
 /// ```
 /// rsmemchk_log_trace!("call value {}",3);
 /// ```
-#[macro_export]
 #[cfg(feature="debug_mode")]
+#[macro_export]
 #[allow(unused_macros)]
 macro_rules! rsmemchk_log_trace {
 	($($arg:tt)+) => {
@@ -341,9 +341,9 @@ macro_rules! rsmemchk_log_trace {
 /// ```
 /// rsmemchk_log_trace!("call value {}",3);
 /// ```
+#[cfg(not(feature="debug_mode"))]
 #[macro_export]
 #[allow(unused_macros)]
-#[cfg(not(feature="debug_mode"))]
 macro_rules! rsmemchk_log_trace {
 	($($arg:tt)+) => {}
 }
