@@ -2,6 +2,11 @@
 name = "rsmemchk"
 version = "0.1.0"
 edition = "2021"
+description = """
+Rust Memory Leak check library for global_allocator
+"""
+license = "MIT/Apache-2.0"
+
 
 [dev-dependencies]
 rsmemchk = {path = "."}
