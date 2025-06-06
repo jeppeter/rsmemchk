@@ -5,14 +5,14 @@ mod alloc;
 pub mod consts;
 
 #[macro_export]
-macro_rules! cfg_rsmalloc_not_inline {
+macro_rules! cfg_rsmemchk_not_inline {
 	($($item:item)*) => {
 		$(
-			#[cfg(feature="rsmalloc_mode")]
+			#[cfg(feature="rsmemchk_mode")]
 			#[inline(never)]
 			$item
 
-			#[cfg(not(feature="rsmalloc_mode"))]
+			#[cfg(not(feature="rsmemchk_mode"))]
 			$item
 			)*
 	}

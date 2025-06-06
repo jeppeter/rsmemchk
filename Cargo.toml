@@ -1,10 +1,10 @@
 [package]
-name = "rsmalloc"
+name = "rsmemchk"
 version = "0.1.0"
 edition = "2021"
 
 [dev-dependencies]
-rsmalloc = {path = "."}
+rsmemchk = {path = "."}
 extargsparse_worker = "^0.2.4"
 extargsparse_codegen = "^0.1.4"
 #extargsparse_worker = {path = "../extargsparse-rs/extargsparse_worker"}

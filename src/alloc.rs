@@ -71,7 +71,7 @@ impl MemoryInfo {
 
 const WBUF_SIZE :usize = 256;
 
-rsmalloc_error_class!{RsAllocError}
+rsmemchk_error_class!{RsAllocError}
 
 #[cfg(target_os = "windows")]
 include!("alloc_windows.rs");
@@ -455,7 +455,7 @@ impl StackCallAlloc {
 	}
 
 	fn _error_file_line(&self, f :&str ,lineno :u32) {
-		self._error_write_str("[RSMALLOC]<ERROR>:[");
+		self._error_write_str("[RSMEMCHK]<ERROR>:[");
 		self._error_write_str(f);
 		self._error_write_str(":");
 		self._error_write_val(lineno as u64, false);
@@ -463,7 +463,7 @@ impl StackCallAlloc {
 	}
 
 	fn _debug_file_line(&self, f :&str ,lineno :u32) {
-		self._debug_write_str("[RSMALLOC]<DEBUG>:[");
+		self._debug_write_str("[RSMEMCHK]<DEBUG>:[");
 		self._debug_write_str(f);
 		self._debug_write_str(":");
 		self._debug_write_val(lineno as u64, false);
@@ -613,12 +613,12 @@ impl StackCallAlloc {
 			}
 			(*retv).loglvl = ERROR_LEVEL;
 			(*retv).fd = ALLOC_DEFAULT_FD;
-			retstr = libc::getenv("RSMALLOC_LOGLEVEL\0".as_bytes().as_ptr() as *const libc::c_char);
+			retstr = libc::getenv("RSMEMCHK_LOGLEVEL\0".as_bytes().as_ptr() as *const libc::c_char);
 			if retstr != null_mut() {
 				(*retv).loglvl = libc::atoi(retstr);
 			}
-			retstr = libc::getenv("RSMALLOC_LOGFILE\0".as_bytes().as_ptr() as *const libc::c_char);
-			(*retv)._error_write_str("get RSMALLOC_LOGFILE=");
+			retstr = libc::getenv("RSMEMCHK_LOGFILE\0".as_bytes().as_ptr() as *const libc::c_char);
+			(*retv)._error_write_str("get RSMEMCHK_LOGFILE=");
 			
 			if retstr != null_mut() {
 				(*retv)._error_write_val(retstr as u64, true);
@@ -875,7 +875,7 @@ impl StackCallAllocEx {
 	pub fn get_memory_info(&self) -> Result<MemoryInfo,Box<dyn Error>> {
 		let ptr :*mut StackCallAlloc = get_allocator(self.memsize,self.stacksize);
 		if ptr == null_mut() {
-			rsmalloc_new_error!{RsAllocError,"can not get StackCallAlloc"}
+			rsmemchk_new_error!{RsAllocError,"can not get StackCallAlloc"}
 		}
 		unsafe {
 			return (*ptr)._get_mem_info2();

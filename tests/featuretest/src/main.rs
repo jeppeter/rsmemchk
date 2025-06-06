@@ -1,6 +1,6 @@
 
-#[cfg(feature="rsmalloc_mode")]
-use rsmalloc::{StackCallAllocEx,MemoryInfo};
+#[cfg(feature="rsmemchk_mode")]
+use rsmemchk::{StackCallAllocEx,MemoryInfo};
 use std::mem::ManuallyDrop;
 use std::error::Error;
 use extargsparse_worker::{extargs_new_error,extargs_error_class};
@@ -10,13 +10,13 @@ use std::cell::RefCell;
 use std::sync::Arc;
 use std::cell::UnsafeCell;
 use caller::{call_function,cc_func};
-use rsmalloc::{cfg_rsmalloc_not_inline};
+use rsmemchk::{cfg_rsmemchk_not_inline};
 
 
 extargs_error_class!{ArcError}
 
 
-#[cfg(feature="rsmalloc_mode")]
+#[cfg(feature="rsmemchk_mode")]
 #[global_allocator]
 static ALLOCATOR: StackCallAllocEx = StackCallAllocEx{memsize : 23, stacksize : 8};
 
@@ -83,7 +83,7 @@ impl Drop for C {
 
 
 impl C {
-	cfg_rsmalloc_not_inline !{
+	cfg_rsmemchk_not_inline !{
 		fn new(val :i32) -> Result<Self,Box<dyn Error>> {
 			Ok(Self {
 				inner : Rc::new(RefCell::new(CInner::new(val)?)),
@@ -97,7 +97,7 @@ impl C {
 }
 
 impl CInner {
-	cfg_rsmalloc_not_inline !{
+	cfg_rsmemchk_not_inline !{
 		fn _add_funcs(&mut self) -> Result<(),Box<dyn Error>> {
 			let b = Arc::new(UnsafeCell::new(self.clone()));
 			let mut bmut =  self.callfuncs.borrow_mut();
@@ -152,7 +152,7 @@ impl CInner {
 }
 
 
-cfg_rsmalloc_not_inline! {
+cfg_rsmemchk_not_inline! {
 
 
 
@@ -212,9 +212,9 @@ fn main() -> Result<(),Box<dyn Error>> {
 	call_function("cc");
 	cc_func("used");
 
-	#[cfg(feature="rsmalloc_mode")]
+	#[cfg(feature="rsmemchk_mode")]
 	ALLOCATOR.scan();
-	#[cfg(feature="rsmalloc_mode")]
+	#[cfg(feature="rsmemchk_mode")]
 	let _maps :MemoryInfo = ALLOCATOR.get_memory_info()?;
 	Ok(())
 }

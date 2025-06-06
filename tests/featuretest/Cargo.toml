@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-rsmalloc = {path = "../../"}
+rsmemchk = {path = "../../"}
 extargsparse_worker = "^0.2.4"
 extargsparse_codegen = "^0.1.4"
 #extargsparse_worker = {path = "../../../extargsparse-rs/extargsparse_worker"}
@@ -12,4 +12,4 @@ extargsparse_codegen = "^0.1.4"
 caller = {path = "../caller"}
 
 [features]
-rsmalloc_mode = ["caller/rsmalloc_mode"]
+rsmemchk_mode = ["caller/rsmemchk_mode"]

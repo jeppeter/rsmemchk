@@ -1,12 +1,12 @@
 
 
-/// to define the error class called for rsmalloc_new_error
+/// to define the error class called for rsmemchk_new_error
 /// ```
-/// rsmalloc_error_class!{ExampleClass}
+/// rsmemchk_error_class!{ExampleClass}
 /// ```
 #[macro_export]
 #[allow(unused_macros)]
-macro_rules! rsmalloc_error_class {
+macro_rules! rsmemchk_error_class {
 	($type:ident) => {
 		#[derive(Clone)]
 		struct $type {
@@ -31,7 +31,7 @@ macro_rules! rsmalloc_error_class {
 		impl std::fmt::Display for $type {
 			fn fmt(&self,f :&mut std::fmt::Formatter) -> std::fmt::Result {
 				let mut errdisplay : bool =false;
-				match std::env::var("RSMALLOC_ERROR_LEVEL") {
+				match std::env::var("RSMEMCHK_ERROR_LEVEL") {
 					Ok(vs) => {
 						match vs.parse::<i32>() {
 							Ok(v) => {
@@ -57,7 +57,7 @@ macro_rules! rsmalloc_error_class {
 		impl std::fmt::Debug for $type {
 			fn fmt(&self,f :&mut std::fmt::Formatter) -> std::fmt::Result {
 				let mut errdisplay : bool =false;
-				match std::env::var("RSMALLOC_ERROR_LEVEL") {
+				match std::env::var("RSMEMCHK_ERROR_LEVEL") {
 					Ok(vs) => {
 						match vs.parse::<i32>() {
 							Ok(v) => {
@@ -85,11 +85,11 @@ macro_rules! rsmalloc_error_class {
 
 /// to call return Err(Box<dyn Error>)
 /// ```
-/// rsmalloc_new_error!{ExampleError,"example error call {}","new error"}
+/// rsmemchk_new_error!{ExampleError,"example error call {}","new error"}
 /// ```
 #[macro_export]
 #[allow(unused_macros)]
-macro_rules! rsmalloc_new_error {
+macro_rules! rsmemchk_new_error {
 	($type:ty,$($a:expr),*) => {
 		{
 			let fname = format!("{}",file!());
@@ -104,11 +104,11 @@ macro_rules! rsmalloc_new_error {
 
 /// to call return Box<dyn Error>
 /// ```
-/// rsmalloc_error_create!{ExampleError,"example error call {}","new error"}
+/// rsmemchk_error_create!{ExampleError,"example error call {}","new error"}
 /// ```
 #[macro_export]
 #[allow(unused_macros)]
-macro_rules! rsmalloc_error_create {
+macro_rules! rsmemchk_error_create {
 	($type:ty,$($a:expr),*) => {
 		{
 			let fname = format!("{}",file!());

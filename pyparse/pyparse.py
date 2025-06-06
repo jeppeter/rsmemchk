@@ -322,7 +322,7 @@ def trans_pe_addr(pemap,fname,addr):
 def memlistparse_handler(args,parser):
 	set_logging(args)
 	fd = ReadFileLarge(args.input)
-	rsmallocexpr = re.compile('^\\[RSMALLOC\\].*',re.I)
+	rsmemchkexpr = re.compile('^\\[RSMEMCHK\\].*',re.I)
 	memlistexpr = re.compile('.*memlist.*alignptr\\[([^\\]]+)\\]\\s+realptr\\[([^\\]]+)\\]\\s+size\\s+\\[([^\\]]+)\\].*callstack\\[([^\\]]+)\\]',re.I)
 	deallocexpr = re.compile('.*deallocate:\\s+alignptr\\[([^\\]]+)\\]\\s+realptr\\[([^\\]]+)\\]',re.I)
 	mapexpr = re.compile('.*memorymap\\[([0-9]+)\\]\\s+\\[([^\\]]+)\\]\\s+\\-\\s+\\[([^\\]]+)\\]\\s+\\[([^\\]]+)\\]',re.I)
@@ -335,7 +335,7 @@ def memlistparse_handler(args,parser):
 		if (lindex % 1000) == 0:
 			logging.info('%d'%(lindex))
 		l = l.rstrip('\r\n')
-		if rsmallocexpr.match(l):
+		if rsmemchkexpr.match(l):
 			# to test for the memlist
 			if memlistafter:
 				# to match 

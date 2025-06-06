@@ -117,7 +117,7 @@ fn _parse_u64(instr :&str) -> Result<u64,Box<dyn Error>> {
 			retv = v;
 		},
 		Err(e) => {
-			rsmalloc_new_error!{RsAllocError, "parse [{}] error [{:?}]", instr, e}
+			rsmemchk_new_error!{RsAllocError, "parse [{}] error [{:?}]", instr, e}
 		}
 	}
 	Ok(retv)
@@ -132,14 +132,14 @@ fn _read_file(fname :&str) -> Result<String,Box<dyn Error>> {
 		let res = reader.read_to_string(&mut retv);
 		if res.is_err() {
 			let err = res.err().unwrap();
-			rsmalloc_new_error!{RsAllocError,"read [{}] error [{:?}]", fname,err}
+			rsmemchk_new_error!{RsAllocError,"read [{}] error [{:?}]", fname,err}
 		}
 		Ok(retv)
 	} else {
 		let fo = std::fs::File::open(fname);
 		if fo.is_err() {
 			let err = fo.err().unwrap();
-			rsmalloc_new_error!{RsAllocError,"can not open [{}] error[{:?}]", fname, err}
+			rsmemchk_new_error!{RsAllocError,"can not open [{}] error[{:?}]", fname, err}
 		}
 		let f = fo.unwrap();
 		let mut reader = std::io::BufReader::new(f);
@@ -147,7 +147,7 @@ fn _read_file(fname :&str) -> Result<String,Box<dyn Error>> {
 		let res = reader.read_to_string(&mut retv);
 		if res.is_err() {
 			let err = res.err().unwrap();
-			rsmalloc_new_error!{RsAllocError,"read [{}] error [{:?}]", fname,err}
+			rsmemchk_new_error!{RsAllocError,"read [{}] error [{:?}]", fname,err}
 		}
 
 		Ok(retv)		
@@ -166,7 +166,7 @@ unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 	let mut curs :String;
 
 	if ores.is_err() {
-		rsmalloc_new_error!{RsAllocError,"[{}] compile error {:?}", regstr, ores.err().unwrap()}
+		rsmemchk_new_error!{RsAllocError,"[{}] compile error {:?}", regstr, ores.err().unwrap()}
 	}
 	reg = ores.unwrap();
 	for s in sarr.iter() {

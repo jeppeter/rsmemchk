@@ -1,5 +1,5 @@
 
-use rsmalloc::{StackCallAllocEx,MemoryInfo};
+use rsmemchk::{StackCallAllocEx,MemoryInfo};
 use std::mem::ManuallyDrop;
 use std::error::Error;
 

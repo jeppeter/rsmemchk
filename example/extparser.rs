@@ -29,7 +29,7 @@ use std::any::Any;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 
-use rsmalloc::{StackCallAllocEx,MemoryInfo};
+use rsmemchk::{StackCallAllocEx,MemoryInfo};
 
 
 

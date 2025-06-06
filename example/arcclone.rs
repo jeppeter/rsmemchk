@@ -1,6 +1,6 @@
 
 
-use rsmalloc::{StackCallAllocEx,MemoryInfo};
+use rsmemchk::{StackCallAllocEx,MemoryInfo};
 use std::rc::Rc;
 use std::cell::{RefCell,UnsafeCell};
 #[allow(unused_imports)]

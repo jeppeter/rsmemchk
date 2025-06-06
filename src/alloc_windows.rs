@@ -183,7 +183,7 @@ unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 
 	//hproc = OpenProcess(PROCESS_VM_READ|PROCESS_QUERY_INFORMATION,FALSE,pid);
 	//if hproc == null_mut() {
-	//	rsmalloc_new_error!{RsAllocError, "can not open {} error", pid}
+	//	rsmemchk_new_error!{RsAllocError, "can not open {} error", pid}
 	//}
 	hproc = GetCurrentProcess();
 
@@ -196,7 +196,7 @@ unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 			if hproc != GetCurrentProcess() {
 				CloseHandle(hproc);	
 			}			
-			rsmalloc_new_error!{RsAllocError,"can not alloc size {}", cinfosize}
+			rsmemchk_new_error!{RsAllocError,"can not alloc size {}", cinfosize}
 		}
 
 		bret = QueryWorkingSet(hproc,cinfo as PVOID,cinfosize as u32);
@@ -209,12 +209,12 @@ unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 
 	/*now we should give the memory*/
 	let wkset :*const PSAPI_WORKING_SET_BLOCK = &((*cinfo).WorkingSetInfo[0]) as *const PSAPI_WORKING_SET_BLOCK;
-	rsmalloc_debug_buffer_trace!(cinfo, size_of::<PSAPI_WORKING_SET_INFORMATION>()+((*cinfo).NumberOfEntries - 1) * size_of::<PSAPI_WORKING_SET_BLOCK>(),"TOTAL workingset");
+	rsmemchk_debug_buffer_trace!(cinfo, size_of::<PSAPI_WORKING_SET_INFORMATION>()+((*cinfo).NumberOfEntries - 1) * size_of::<PSAPI_WORKING_SET_BLOCK>(),"TOTAL workingset");
 	for i in 0..(*cinfo).NumberOfEntries {
 		let cblock :*const PSAPI_WORKING_SET_BLOCK = wkset.wrapping_add(i) as *const PSAPI_WORKING_SET_BLOCK;
 		let curpage :u64 = ((*cblock).Flags >> 12) as u64;
 		let curprot :u32 = _get_prot(((*cblock).Flags & 0x1f) as u32);
-		rsmalloc_debug_buffer_trace!(cblock, size_of::<PSAPI_WORKING_SET_BLOCK>(), "{} cblock VirtualPage 0x{:x}",i,curpage);
+		rsmemchk_debug_buffer_trace!(cblock, size_of::<PSAPI_WORKING_SET_BLOCK>(), "{} cblock VirtualPage 0x{:x}",i,curpage);
 		if i == 0 {
 			saddr = (curpage as u64) << WIN_PAGE_SHIFT;
 			lastpage = curpage as u64;
@@ -225,7 +225,7 @@ unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 			libc::memset(cptr as *mut libc::c_void,0, FNAME_SIZE);
 			cptr = (&mut filename) as *mut i8;
 			sret =  GetMappedFileNameA(hproc,saddr as LPVOID,cptr,FNAME_SIZE as u32);
-			rsmalloc_log_trace!("[{}]saddr 0x{:x} sret {}",i, saddr, sret);
+			rsmemchk_log_trace!("[{}]saddr 0x{:x} sret {}",i, saddr, sret);
 			if sret == 0 {
 				cptr = ((&mut storefilename) as *mut u8) as *mut i8;
 				libc::memset(cptr as *mut libc::c_void,0,FNAME_SIZE);
@@ -241,7 +241,7 @@ unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 			if (lastpage+1) == curpage as u64 && lastprotect == curprot {
 				cptr = &mut filename as *mut i8;
 				sret = GetMappedFileNameA(hproc,saddr as LPVOID,cptr,FNAME_SIZE as u32);
-				rsmalloc_log_trace!("[{}]saddr 0x{:x} sret {}",i, saddr, sret);
+				rsmemchk_log_trace!("[{}]saddr 0x{:x} sret {}",i, saddr, sret);
 				if sret == 0 {
 					if storefilename[0] != 0 {
 						curmap.endaddr = (lastpage << WIN_PAGE_SHIFT) + WIN_PAGE_ADDR_MASK;
@@ -274,7 +274,7 @@ unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 				curmap.startaddr = saddr;
 				curmap.protect = curprot;
 				sret = GetMappedFileNameA(hproc,saddr as LPVOID,cptr,FNAME_SIZE as u32);
-				rsmalloc_log_trace!("[{}]saddr 0x{:x} sret {}",i, saddr, sret);
+				rsmemchk_log_trace!("[{}]saddr 0x{:x} sret {}",i, saddr, sret);
 				if sret == 0 {
 					cptr = ((&mut storefilename) as *mut u8) as *mut i8;
 					libc::memset(cptr as *mut libc::c_void,0,FNAME_SIZE);
@@ -283,7 +283,7 @@ unsafe fn _get_mem_info() -> Result<MemoryInfo,Box<dyn Error>> {
 					sptr = &filename as *const i8;
 					libc::memcpy(cptr as *mut libc::c_void,sptr as *const libc::c_void,FNAME_SIZE);
 					sret = get_len(&storefilename);
-					rsmalloc_debug_buffer_trace!(cptr, sret, "copy name");
+					rsmemchk_debug_buffer_trace!(cptr, sret, "copy name");
 					curmap.mapfile = String::from_utf8_lossy(&storefilename[0..(sret as usize)]).to_string();
 				}
 			}
