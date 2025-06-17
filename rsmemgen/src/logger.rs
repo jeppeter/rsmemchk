@@ -343,7 +343,6 @@ macro_rules! rsmemgen_log_trace {
 /// let buf :Vec<u8> = vec![3,2,4];
 /// rsmemgen_format_buffer_trace!(buf.as_ptr(),buf.len(),"buffer output value {}",3);
 /// ```
-#[macro_export]
 #[allow(unused_macros)]
 #[cfg(feature="debug_mode")]
 macro_rules! rsmemgen_debug_buffer_trace {

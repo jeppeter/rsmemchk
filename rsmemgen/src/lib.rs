@@ -5,6 +5,8 @@ mod errors;
 #[macro_use]
 mod logger;
 
+use quote::{ToTokens};
+
 use logger::{rsmemgen_debug_out,rsmemgen_log_get_timestamp};
 
 
@@ -43,7 +45,9 @@ pub fn rsmemchk_inline_attr(_args :TokenStream , input :TokenStream) -> TokenStr
     }
 
     for item in implstruct.items.iter_mut() {
-    	rsmemgen_log_trace!("attr {:?}",item);
+        let mut tk : TokenStream;
+        tk = item.into_token_stream().into();
+    	rsmemgen_log_trace!("attr {}",tk.to_string());
     }
 
     return input;

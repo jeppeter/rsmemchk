@@ -2,7 +2,6 @@ use std::error::Error;
 use rsmemgen::{rsmemchk_inline_attr};
 
 
-
 struct Values {
 	pub val :i32,
 }
