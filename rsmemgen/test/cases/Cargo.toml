@@ -1,0 +1,11 @@
+[package]
+name = "cases"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rsmemgen = {path = "../../"}
+rsmemchk = {path = "../../.."}
+
+[features]
+debug_mode = ["rsmemgen/debug_mode","rsmemchk/debug_mode"]
