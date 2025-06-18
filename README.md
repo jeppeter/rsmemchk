@@ -2,6 +2,7 @@
 > rust memory leak check libraray
 
 ### Release History
+* Jun 18th 2025 to release 0.1.2 for memory access check as in the dump memory
 * Jun 6th 2025 to release 0.1.0 for first version
 
 ### examples

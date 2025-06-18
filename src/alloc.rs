@@ -8,7 +8,6 @@ use crate::*;
 #[allow(unused_imports)]
 use crate::logger::*;
 
-
 pub struct MemoryMap {
 	pub startaddr :u64,
 	pub endaddr :u64,
@@ -19,6 +18,116 @@ pub struct MemoryMap {
 pub struct MemoryInfo {
 	pub maps :Vec<MemoryMap>,
 }
+
+
+#[repr(C)]
+struct MemAccess {
+	pub startaddr :u64,
+	pub endaddr :u64,
+	pub protect :u32,
+}
+
+#[repr(C)]
+struct MemoryMapAccess {
+	pub size :usize,
+	pub access :*mut MemAccess,
+}
+
+impl MemoryMapAccess {
+	unsafe fn new_mem(map :&MemoryInfo) -> *mut MemoryMapAccess {
+		let retv :*mut MemoryMapAccess ;
+		retv = libc::malloc(size_of::<MemoryMapAccess>()) as *mut MemoryMapAccess;
+		if retv == null_mut() {
+			return null_mut();
+		}
+
+		libc::memset(retv as *mut libc::c_void,0, size_of::<MemoryMapAccess>());
+		if map.maps.len() == 0 {
+			return retv;
+		}
+
+		(*retv).size = map.maps.len();
+		(*retv).access = libc::malloc(size_of::<MemAccess>() * (*retv).size) as *mut MemAccess;
+		if (*retv).access == null_mut() {
+			MemoryMapAccess::free_mem(retv);
+			return null_mut();
+		}
+		libc::memset((*retv).access as *mut libc::c_void, 0 ,size_of::<MemAccess>() * (*retv).size);
+		let mut idx :usize = 0;
+		while idx < map.maps.len() {
+			let curptr :*mut MemAccess = (*retv).access.wrapping_add(idx) as *mut MemAccess;
+			(*curptr).startaddr = map.maps[idx].startaddr;
+			(*curptr).endaddr = map.maps[idx].endaddr;
+			(*curptr).protect = map.maps[idx].protect;
+			idx += 1;
+		}
+		return retv as *mut MemoryMapAccess;
+	}
+
+	unsafe fn free_mem(ptr :*mut MemoryMapAccess) {
+		if ptr == null_mut() {
+			return;
+		}
+
+		if (*ptr).access != null_mut() {
+			libc::free((*ptr).access as *mut libc::c_void);
+			(*ptr).access = null_mut();
+		}
+		libc::free(ptr as *mut libc::c_void);
+		return;
+	}
+
+	unsafe fn access_ok(&self, addr :u64, size :usize,accessmode :u32) -> i32 {
+		let mut idx :usize = 0;
+
+		while idx < self.size {
+			let curptr :*const MemAccess = self.access.wrapping_add(idx);
+			if (*curptr).startaddr <= addr && (*curptr).endaddr > addr {
+				if (*curptr).startaddr <= (addr + size as u64) && (*curptr).endaddr >= (addr+size as u64) {
+					if ((*curptr).protect & accessmode) == accessmode {
+						/*access mode not capable*/
+						return 1;
+					}
+					return 0;
+				}
+
+				if ((*curptr).protect & accessmode) != accessmode {
+					return 0;
+				}
+				let mut nextidx :usize = idx + 1;
+				let mut prevptr :*const MemAccess = curptr;
+
+				loop {
+					if nextidx == self.size {
+						/*no memory can get*/
+						return 0;
+					}
+
+					let nextptr :*const MemAccess = self.access.wrapping_add(idx + 1);
+					if (*nextptr).startaddr != ((*prevptr).endaddr + 1) {
+						/*we have whole in the access*/
+						return 0;
+					}
+
+					if ((*nextptr).protect & accessmode) != accessmode {
+						/*not the capable access mode*/
+						return 0;
+					}
+
+					if (*nextptr).endaddr >= (addr + size as u64) {
+						return 1;
+					}
+
+					prevptr = nextptr;
+					nextidx += 1;
+				}
+			}
+			idx += 1;
+		}
+		return 0;
+	}
+}
+
 
 pub fn protect_str(prot :u32) -> String {
 	let mut retv :String = "".to_string();
@@ -721,12 +830,31 @@ impl StackCallAlloc {
 		return ores;
 	}
 
+	unsafe fn _copy_mem_access(&self) -> *mut MemoryMapAccess {
+		let ores = self._get_mem_info2();
+		if ores.is_err() {
+			return null_mut();
+		}
+
+		let map = ores.unwrap();
+		let retv :*mut MemoryMapAccess = MemoryMapAccess::new_mem(&map);
+		if retv == null_mut() {
+			return null_mut();
+		}
+		drop(map);
+		return retv;
+	}
+
 
 	pub unsafe fn scan(&self) -> i32 {
 		let mut idx :usize;
 		let mut jdx :usize;
 		let mut kdx :usize;
 		let mut errcnt :i32 = 0;
+		let accesscheck :*mut MemoryMapAccess = self._copy_mem_access();
+		if accesscheck == null_mut() {
+			return -1;
+		}
 		(*self.lock).lock();
 		idx = 0;
 		while idx < self.memsize {
@@ -761,21 +889,31 @@ impl StackCallAlloc {
 				jdx = 0;				
 				while jdx < (*cptr).callsize {
 					let curback :*const libc::c_void = *((*cptr).callstack.wrapping_add(jdx));
-					self._error_file_line(file!(),line!());	
-					self._error_write_str("pointer[");
-					self._error_val_wide(curback as u64,true,2);
-					self._error_write_str("] ");
-					kdx = 0;
-					let mut rptr :*const libc::c_uchar = curback as *const libc::c_uchar;
-					while rptr != null_mut() && kdx < 16 && ((rptr as u64) % 0x1000) != 0 {
-						if kdx > 0 {
-							self._error_write_str(" ");
+					let reti :i32;
+
+					reti = (*accesscheck).access_ok(curback as u64, 16,MEM_READ);
+					if reti > 0 {
+						self._error_file_line(file!(),line!());	
+						self._error_write_str("pointer[");
+						self._error_val_wide(curback as u64,true,2);
+						self._error_write_str("] ");
+						kdx = 0;
+						let mut rptr :*const libc::c_uchar = curback as *const libc::c_uchar;
+						while rptr != null_mut() && kdx < 16 && ((rptr as u64) % 0x1000) != 0 {
+							if kdx > 0 {
+								self._error_write_str(" ");
+							}
+							self._error_write_val(*rptr as u64, true);
+							rptr = rptr.wrapping_add(1);
+							kdx += 1;
 						}
-						self._error_write_val(*rptr as u64, true);
-						rptr = rptr.wrapping_add(1);
-						kdx += 1;
+						self._error_write_str("\n");						
+					} else {
+						self._error_file_line(file!(),line!());
+						self._error_write_str("pointer[");
+						self._error_val_wide(curback as u64,true,2);
+						self._error_write_str("] can not access\n");
 					}
-					self._error_write_str("\n");
 
 					jdx += 1;
 				}
@@ -787,6 +925,7 @@ impl StackCallAlloc {
 		}
 
 		(*self.lock).unlock();
+		MemoryMapAccess::free_mem(accesscheck);
 		return errcnt;
 	}
 }
