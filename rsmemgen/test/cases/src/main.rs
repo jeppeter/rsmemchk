@@ -8,6 +8,7 @@ struct Values {
 
 #[rsmemchk_inline_attr()]
 impl Values {
+	#[inline(never)]
 	pub fn new(val :i32) ->  Self {
 		Self {
 			val :val,
@@ -15,6 +16,7 @@ impl Values {
 	}
 
 	pub fn to_string(&self) -> String {
+		println!("in line [{}:{}]",file!(),line!());
 		return format!("{}",self.val);
 	}
 }
