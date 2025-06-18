@@ -776,7 +776,7 @@ impl StackCallAlloc {
 		}
 	}
 
-	pub unsafe fn _get_mem_info2(&self) -> Result<MemoryInfo,Box<dyn Error>> {
+	pub unsafe fn _get_mem_info2(&self,debugmode :i32) -> Result<MemoryInfo,Box<dyn Error>> {
 		let ores = _get_mem_info();
 		if ores.is_ok() {
 			let info :MemoryInfo = ores.unwrap();
@@ -784,46 +784,48 @@ impl StackCallAlloc {
 			let mut jdx :usize;
 			let mut c :u8;
 			let mut ptr :*const u8;
-			(*self.lock).lock();
-			for v in info.maps.iter() {
-				self._error_file_line(file!(),line!());
-				self._error_write_str("memorymap[");
-				self._error_write_val(idx as u64, false);
-				self._error_write_str("] [");
-				self._error_write_val(v.startaddr as u64, true);
-				self._error_write_str("] - [");
-				self._error_write_val(v.endaddr as u64, true);
-				self._error_write_str("] [");
-				self._error_write_str(&v.mapfile);
-				self._error_write_str("]\n");
+			if debugmode > 0 {
+				(*self.lock).lock();
+				for v in info.maps.iter() {
+					self._error_file_line(file!(),line!());
+					self._error_write_str("memorymap[");
+					self._error_write_val(idx as u64, false);
+					self._error_write_str("] [");
+					self._error_write_val(v.startaddr as u64, true);
+					self._error_write_str("] - [");
+					self._error_write_val(v.endaddr as u64, true);
+					self._error_write_str("] [");
+					self._error_write_str(&v.mapfile);
+					self._error_write_str("]\n");
 
 
-				self._error_file_line(file!(),line!());
-				self._error_write_str("[");
-				self._error_write_str(&v.mapfile);
-				self._error_write_str("]startaddr[");
-				self._error_write_val(v.startaddr as u64, true);
-				self._error_write_str("]");
-				jdx = 0;
-				while jdx < 0x20 && (v.protect & MEM_READ) != 0 {
-					ptr = (v.startaddr + jdx as u64) as *const u8;
-					c = *ptr;
-					if (jdx % 0x10) == 0 {
-						self._error_write_str("\n");
-					} else {
-						self._error_write_str(" ");
+					self._error_file_line(file!(),line!());
+					self._error_write_str("[");
+					self._error_write_str(&v.mapfile);
+					self._error_write_str("]startaddr[");
+					self._error_write_val(v.startaddr as u64, true);
+					self._error_write_str("]");
+					jdx = 0;
+					while jdx < 0x20 && (v.protect & MEM_READ) != 0 {
+						ptr = (v.startaddr + jdx as u64) as *const u8;
+						c = *ptr;
+						if (jdx % 0x10) == 0 {
+							self._error_write_str("\n");
+						} else {
+							self._error_write_str(" ");
+						}
+						self._error_val_wide(c as u64,true,2);
+						jdx += 1;
 					}
-					self._error_val_wide(c as u64,true,2);
-					jdx += 1;
+					self._error_write_str("\n");
+
+					self._error_flush();
+
+					idx += 1;
 				}
-				self._error_write_str("\n");
 
-				self._error_flush();
-
-				idx += 1;
+				(*self.lock).unlock();				
 			}
-
-			(*self.lock).unlock();
 
 			return Ok(info);
 		}
@@ -831,7 +833,7 @@ impl StackCallAlloc {
 	}
 
 	unsafe fn _copy_mem_access(&self) -> *mut MemoryMapAccess {
-		let ores = self._get_mem_info2();
+		let ores = self._get_mem_info2(0);
 		if ores.is_err() {
 			return null_mut();
 		}
@@ -1017,7 +1019,7 @@ impl StackCallAllocEx {
 			rsmemchk_new_error!{RsAllocError,"can not get StackCallAlloc"}
 		}
 		unsafe {
-			return (*ptr)._get_mem_info2();
+			return (*ptr)._get_mem_info2(1);
 		}
 	}
 }
