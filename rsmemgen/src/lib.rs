@@ -24,23 +24,27 @@ macro_rules! syn_error_fmt {
 }
 
 
+#[allow(unused_assignments)]
 #[proc_macro_attribute]
-pub fn rsmemchk_inline_attr(_args :TokenStream , input :TokenStream) -> TokenStream {
+pub fn rsmemgen_impl_inline(_args :TokenStream , input :TokenStream) -> TokenStream {
     let mut implstruct : syn::ItemImpl ;
+
+    match std::env::var("RSMEMCHK_MODE") {
+        Ok(_v) => {},
+        Err(_e) => {
+            /*we do not set this handle*/
+            rsmemgen_log_trace!("retv\n{}",input.to_string());
+            return input;
+        },
+    }
+
+
     match syn::parse::<syn::ItemImpl>(input.clone()) {
         Ok(v) => {
             implstruct = v.clone();
         },
         Err(_e) => {
             syn_error_fmt!("not parse \n{}",input.to_string());
-            //return syn::Error::new(
-            //        Span::call_site(),
-            //        &format!(
-            //            "not parse \n{}",
-            //            item.to_string()
-            //        ),
-            //    ).to_compile_error().to_string().parse().unwrap();
-
         }
     }
 
@@ -84,66 +88,80 @@ pub fn rsmemchk_inline_attr(_args :TokenStream , input :TokenStream) -> TokenStr
                     };
                     c.attrs.push(cp.clone());
                 }
-         },
-         _ => {},
+            },
+            _ => {},
 
-     }
+        }
 
-     if newfn.is_some() {
-        implstruct.items[idx] = syn::ImplItem::Fn(newfn.as_ref().unwrap().clone());
+        if newfn.is_some() {
+            implstruct.items[idx] = syn::ImplItem::Fn(newfn.as_ref().unwrap().clone());
+        }
+        idx += 1;
     }
-    idx += 1;
+
+    let retv :TokenStream = implstruct.into_token_stream().into();
+    rsmemgen_log_trace!("retv\n{}",retv.to_string());
+
+    return retv;
 }
 
+#[proc_macro_attribute]
+pub fn rsmemgen_func_inline(_args :TokenStream , input :TokenStream) -> TokenStream {
+    let mut fnstruct : syn::ItemFn ;
 
-let retv :TokenStream = implstruct.into_token_stream().into();
-rsmemgen_log_trace!("retv\n{}",retv.to_string());
+    match std::env::var("RSMEMCHK_MODE") {
+        Ok(_v) => {},
+        Err(_e) => {
+            /*we do not set this handle*/
+            rsmemgen_log_trace!("retv\n{}",input.to_string());
+            return input;
+        },
+    }
 
-return retv;
 
+    match syn::parse::<syn::ItemFn>(input.clone()) {
+        Ok(v) => {
+            fnstruct = v.clone();
+        },
+        Err(_e) => {
+            syn_error_fmt!("not parse \n{}",input.to_string());
+        }
+    }
+
+    let mut matched :bool = false;
+    let mut idx :usize = 0;
+    while idx < fnstruct.attrs.len() {
+        let a :syn::Attribute = fnstruct.attrs[idx].clone();
+        let mut tk : TokenStream;
+        tk = a.clone().into_token_stream().into();
+        rsmemgen_log_trace!("a\n{}",tk.to_string());
+        match a.meta.clone() {
+            syn::Meta::List(l) => {
+                //tk = l.into_token_stream().into();
+                //rsmemgen_log_trace!("l\n{}",tk.to_string());
+                tk = l.path.into_token_stream().into();
+                rsmemgen_log_trace!("path\n{}",tk.to_string());
+                let pname = tk.to_string();
+                if pname == "inline" {
+                    matched = true;
+                    break;
+                }
+            },
+            _ => {
+            },
+        }
+        idx += 1;
+    }
+
+    if !matched {
+        let cp :syn::Attribute = syn::parse_quote! {
+            #[inline(never)]
+        };
+        fnstruct.attrs.push(cp.clone());
+    }
+
+
+    let retv :TokenStream = fnstruct.into_token_stream().into();
+    rsmemgen_log_trace!("retv\n{}",retv.to_string());
+    return retv;
 }
-
-            //     match item {
-            //         syn::ImplItem::Fn(fnptr) => {
-            //             newfn = fnptr.clone();
-            //             tk = fnptr.into_token_stream().into();
-            //             rsmemgen_log_trace!("fnptr\n{}", tk.to_string());
-            //             let mut inlinematch :bool = false;
-
-            //             if fnptr.attrs.len() > 0 {
-            //                 for a in fnptr.attrs.iter() {
-            //                     tk = a.into_token_stream().into();
-            //                     rsmemgen_log_trace!("a\n{}",tk.to_string());
-            //                     tk = a.meta.clone().into_token_stream().into();
-            //                     match a.meta.clone() {
-            //                         syn::Meta::Path(p) => {
-            //                     //tk = p.into_token_stream().into();
-            //                     //rsmemgen_log_trace!("p\n{}",tk.to_string());
-            //                 },
-            //                 syn::Meta::List(l) => {
-            //                     //tk = l.into_token_stream().into();
-            //                     //rsmemgen_log_trace!("l\n{}",tk.to_string());
-            //                     tk = l.path.into_token_stream().into();
-            //                     rsmemgen_log_trace!("path\n{}",tk.to_string());
-            //                     let pname = tk.to_string();
-            //                     if pname == "inline" {
-            //                         inlinematch = true;
-            //                     }
-            //                 },
-            //                 syn::Meta::NameValue(n)=>{
-            //                     tk = n.into_token_stream().into();
-            //                     rsmemgen_log_trace!("n\n{}",tk.to_string());                                
-            //                 },
-            //             }
-            //                 if !inlinematch {
-            //                     let  c :&mut syn::ImplItemFn = newfn.as_mut().unwrap();
-            //                     let cp :syn::Attribute = syn::parse_quote! {
-            //                        #[inline(never)]
-            //                     };
-            //                     c.attrs.push(cp.clone());
-            //                 }
-            //             }
-
-            //         }
-            //     },
-            // _ => {},

@@ -20,3 +20,4 @@ quote = "^1.0.40"
 
 [features]
 debug_mode = []
+rsmemchk_mode = []

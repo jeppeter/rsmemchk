@@ -9,3 +9,4 @@ rsmemchk = {path = "../../.."}
 
 [features]
 debug_mode = ["rsmemgen/debug_mode","rsmemchk/debug_mode"]
+rsmemchk_mode = []
