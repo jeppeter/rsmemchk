@@ -105,6 +105,7 @@ pub fn rsmemgen_impl_inline(_args :TokenStream , input :TokenStream) -> TokenStr
     return retv;
 }
 
+#[allow(unused_assignments)]
 #[proc_macro_attribute]
 pub fn rsmemgen_func_inline(_args :TokenStream , input :TokenStream) -> TokenStream {
     let mut fnstruct : syn::ItemFn ;
