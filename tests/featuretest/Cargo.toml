@@ -10,6 +10,8 @@ extargsparse_codegen = "^0.1.4"
 #extargsparse_worker = {path = "../../../extargsparse-rs/extargsparse_worker"}
 #extargsparse_codegen = {path = "../../../extargsparse-rs/extargsparse_codegen"}
 caller = {path = "../caller"}
+rsmemgen = {path = "../../rsmemgen"}
 
 [features]
 rsmemchk_mode = ["caller/rsmemchk_mode"]
+debug_mode = ["caller/debug_mode","rsmemgen/debug_mode"]

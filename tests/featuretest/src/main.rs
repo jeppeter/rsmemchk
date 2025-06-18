@@ -10,7 +10,7 @@ use std::cell::RefCell;
 use std::sync::Arc;
 use std::cell::UnsafeCell;
 use caller::{call_function,cc_func};
-use rsmemchk::{cfg_rsmemchk_not_inline};
+use rsmemgen::{rsmemgen_impl_inline,rsmemgen_func_inline};
 
 
 extargs_error_class!{ArcError}
@@ -44,6 +44,7 @@ struct CInner {
 	callfuncs :Rc<RefCell<HashMap<String,Rc<RefCell<CFunc>>>>>,
 }
 
+#[rsmemgen_impl_inline()]
 impl Drop for CInner {
 	fn drop(&mut self) {
 		println!("CInner drop");
@@ -75,120 +76,115 @@ struct  C {
 	inner :Rc<RefCell<CInner>>,
 }
 
+#[rsmemgen_impl_inline()]
 impl Drop for C {
 	fn drop(&mut self) {
 		println!("C cnt {}",  Rc::strong_count(&self.inner));		
 	}
 }
 
-
+#[rsmemgen_impl_inline()]
 impl C {
-	cfg_rsmemchk_not_inline !{
-		fn new(val :i32) -> Result<Self,Box<dyn Error>> {
-			Ok(Self {
-				inner : Rc::new(RefCell::new(CInner::new(val)?)),
-			})
-		}
-
-		fn call_load(&self, v :&str,vn :&str) -> Result<(),Box<dyn Error>> {
-			return self.inner.borrow_mut().call_load(v,vn);
-		}		
+	fn new(val :i32) -> Result<Self,Box<dyn Error>> {
+		Ok(Self {
+			inner : Rc::new(RefCell::new(CInner::new(val)?)),
+		})
 	}
+
+	fn call_load(&self, v :&str,vn :&str) -> Result<(),Box<dyn Error>> {
+		return self.inner.borrow_mut().call_load(v,vn);
+	}		
 }
 
+#[rsmemgen_impl_inline()]
 impl CInner {
-	cfg_rsmemchk_not_inline !{
-		fn _add_funcs(&mut self) -> Result<(),Box<dyn Error>> {
-			let b = Arc::new(UnsafeCell::new(self.clone()));
-			let mut bmut =  self.callfuncs.borrow_mut();
-			let s1 = b.clone();
-			bmut.insert(format!("hello",),Rc::new(RefCell::new(CFunc::LoadFunc(Rc::new(move |n| {let  c :&mut CInner = unsafe {&mut *s1.get()};
-				c.hello_func(n)
-			} )))));
-			Ok(())
-		}
-
-		fn hello_func(&mut self, n :&str ) -> Result<(),Box<dyn Error>> {
-			println!("val[{}]hello {}",self.val, n);
-			Ok(())
-		}
-
-		fn new(val :i32) -> Result<Self,Box<dyn Error>> {
-			let mut retv :Self = Self {
-				val :val,
-				callfuncs :Rc::new(RefCell::new(HashMap::new())),
-			};
-			let _ = retv._add_funcs()?;
-			Ok(retv)
-		}
-
-		fn _get_load_func(&self, v :&str) -> Option<CFunc> {
-			let mut retv : Option<CFunc> = None;
-			match self.callfuncs.borrow().get(v) {
-				Some(f1) => {
-					let f2 :&CFunc = &f1.borrow();
-					retv = Some(f2.clone());
-				},
-				None => {}
-			}
-			retv		
-		}
-
-		fn call_load(&mut self, v :&str,vn :&str) -> Result<(),Box<dyn Error>> {
-			let fnptr :Option<CFunc>;
-			fnptr = self._get_load_func(v);
-			if fnptr.is_some() {
-				let f2 = fnptr.unwrap();
-				match f2 {
-					CFunc::LoadFunc(f) => {
-						return f(vn);
-					},
-				}
-			} else {
-				extargs_new_error!{ArcError,"can not found [{}] load command map function", v}
-			}
-		}
+	fn _add_funcs(&mut self) -> Result<(),Box<dyn Error>> {
+		let b = Arc::new(UnsafeCell::new(self.clone()));
+		let mut bmut =  self.callfuncs.borrow_mut();
+		let s1 = b.clone();
+		bmut.insert(format!("hello",),Rc::new(RefCell::new(CFunc::LoadFunc(Rc::new(move |n| {let  c :&mut CInner = unsafe {&mut *s1.get()};
+			c.hello_func(n)
+		} )))));
+		Ok(())
 	}
-}
 
+	fn hello_func(&mut self, n :&str ) -> Result<(),Box<dyn Error>> {
+		println!("val[{}]hello {}",self.val, n);
+		Ok(())
+	}
 
-cfg_rsmemchk_not_inline! {
-
-
-
-
-
-	fn call_1(c :CB) -> DB {
-		let mut d = DB {
-			bb :vec![],
+	fn new(val :i32) -> Result<Self,Box<dyn Error>> {
+		let mut retv :Self = Self {
+			val :val,
+			callfuncs :Rc::new(RefCell::new(HashMap::new())),
 		};
+		let _ = retv._add_funcs()?;
+		Ok(retv)
+	}
 
-		while d.bb.len() < c.cc as usize {
-			d.bb.push(33);
+	fn _get_load_func(&self, v :&str) -> Option<CFunc> {
+		let mut retv : Option<CFunc> = None;
+		match self.callfuncs.borrow().get(v) {
+			Some(f1) => {
+				let f2 :&CFunc = &f1.borrow();
+				retv = Some(f2.clone());
+			},
+			None => {}
 		}
-		d
+		retv		
 	}
 
-	fn call_2(v :i32) -> CB {
-		CB {
-			cc :v
+	fn call_load(&mut self, v :&str,vn :&str) -> Result<(),Box<dyn Error>> {
+		let fnptr :Option<CFunc>;
+		fnptr = self._get_load_func(v);
+		if fnptr.is_some() {
+			let f2 = fnptr.unwrap();
+			match f2 {
+				CFunc::LoadFunc(f) => {
+					return f(vn);
+				},
+			}
+		} else {
+			extargs_new_error!{ArcError,"can not found [{}] load command map function", v}
 		}
 	}
-
-	fn call_3(x :i32) -> DB {
-		let c :CB = call_2(x);
-		return call_1(c);
-	}
-
-	fn call_4(c :i32) -> Vec<DB> {
-		let mut retv :Vec<DB> = vec![];
-		for i in 0..c{
-			retv.push(call_3(i));
-		}
-		retv
-	}
-
 }
+
+
+#[rsmemgen_func_inline()]
+fn call_1(c :CB) -> DB {
+	let mut d = DB {
+		bb :vec![],
+	};
+
+	while d.bb.len() < c.cc as usize {
+		d.bb.push(33);
+	}
+	d
+}
+
+#[rsmemgen_func_inline()]
+fn call_2(v :i32) -> CB {
+	CB {
+		cc :v
+	}
+}
+
+#[rsmemgen_func_inline()]
+fn call_3(x :i32) -> DB {
+	let c :CB = call_2(x);
+	return call_1(c);
+}
+
+#[rsmemgen_func_inline()]
+fn call_4(c :i32) -> Vec<DB> {
+	let mut retv :Vec<DB> = vec![];
+	for i in 0..c{
+		retv.push(call_3(i));
+	}
+	retv
+}
+
 
 fn main() -> Result<(),Box<dyn Error>> {
 	let c :CB = call_2(77);

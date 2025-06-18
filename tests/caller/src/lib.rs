@@ -1,19 +1,14 @@
 
-use rsmemchk::cfg_rsmemchk_not_inline;
+use rsmemgen::{rsmemgen_func_inline};
 
-cfg_rsmemchk_not_inline!{
-	pub fn call_function(n :&str) {
-		println!("caller {}", n);
-	}	
-}
+#[rsmemgen_func_inline()]
+pub fn call_function(n :&str) {
+	println!("caller {}", n);
+}	
 
 
-#[cfg(feature="rsmemchk_mode")]
+#[rsmemgen_func_inline()]
 pub fn cc_func(n :&str) {
-	println!("cc_func with rsmemchk_mode {}", n);
+	println!("cc_func  {}", n);
 }
 
-#[cfg(not(feature="rsmemchk_mode"))]
-pub fn cc_func(n :&str) {
-	println!("cc_func with not rsmemchk_mode {}", n);
-}
