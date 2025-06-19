@@ -10,6 +10,7 @@ repository = "https://github.com/jeppeter/rsmemchk"
 
 [dev-dependencies]
 rsmemchk = {path = "."}
+rsmemgen = {path = "./rsmemgen"}
 extargsparse_worker = "^0.2.4"
 extargsparse_codegen = "^0.1.4"
 #extargsparse_worker = {path = "../extargsparse-rs/extargsparse_worker"}
@@ -48,3 +49,4 @@ features = ["minwinbase","synchapi","winnt","minwindef","psapi","processthreadsa
 
 [features]
 debug_mode = []
+rsmemchk_mode = []

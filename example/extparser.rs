@@ -30,7 +30,7 @@ use lazy_static::lazy_static;
 use std::collections::HashMap;
 
 use rsmemchk::{StackCallAllocEx,MemoryInfo};
-
+use rsmemgen::{rsmemgen_func_inline};
 
 
 #[global_allocator]
@@ -39,6 +39,7 @@ static ALLOCATOR: StackCallAllocEx = StackCallAllocEx{memsize : 307,stacksize:32
 
 extargs_error_class!{ExtParserError}
 
+#[rsmemgen_func_inline()]
 fn loadcfg_handler(_ns :NameSpaceEx,_optargset :Option<Arc<RefCell<dyn ArgSetImpl>>>,_ctx :Option<Arc<RefCell<dyn Any>>>) -> Result<(),Box<dyn Error>> {
 	Ok(())
 }
