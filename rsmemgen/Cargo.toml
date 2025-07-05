@@ -1,6 +1,6 @@
 [package]
 name = "rsmemgen"
-version = "0.1.0"
+version = "0.1.2"
 edition = "2021"
 description = """
 Rust Memory Leak check library code generation for inline or inline(never)

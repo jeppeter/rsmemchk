@@ -24,18 +24,33 @@ macro_rules! syn_error_fmt {
 }
 
 
+fn check_rsmemchk_mode(args :Vec<String>) -> bool {
+    let mut idx :usize = 0;
+    let mut retval :bool = false;
+    while idx < args.len() {
+        if args[idx] == "--cfg" {
+            if idx < (args.len() - 1) {
+                if args[idx+1] == "feature=\"rsmemchk_mode\"" {
+                    retval = true;
+                    break;
+                }
+            }
+        }
+        idx += 1;
+    }
+    return retval;
+}
+
+
 #[allow(unused_assignments)]
 #[proc_macro_attribute]
 pub fn rsmemgen_impl_inline(_args :TokenStream , input :TokenStream) -> TokenStream {
     let mut implstruct : syn::ItemImpl ;
-
-    match std::env::var("RSMEMCHK_MODE") {
-        Ok(_v) => {},
-        Err(_e) => {
-            /*we do not set this handle*/
-            rsmemgen_log_trace!("retv\n{}",input.to_string());
-            return input;
-        },
+    let args :Vec<String> = std::env::args().collect();
+    rsmemgen_log_trace!("args {:?}", args);
+    if !check_rsmemchk_mode(args) {
+        rsmemgen_log_trace!("retv\n{}",input.to_string());
+        return input;        
     }
 
 
@@ -84,16 +99,15 @@ pub fn rsmemgen_impl_inline(_args :TokenStream , input :TokenStream) -> TokenStr
                     newfn = Some(fnptr.clone());
                     let  c :&mut syn::ImplItemFn = newfn.as_mut().unwrap();
                     let cp :syn::Attribute = syn::parse_quote! {
-                         #[inline(never)]
+                        #[inline(never)]
                     };
                     c.attrs.push(cp.clone());
                 }
             },
             _ => {},
+       }
 
-        }
-
-        if newfn.is_some() {
+       if newfn.is_some() {
             implstruct.items[idx] = syn::ImplItem::Fn(newfn.as_ref().unwrap().clone());
         }
         idx += 1;
@@ -105,18 +119,17 @@ pub fn rsmemgen_impl_inline(_args :TokenStream , input :TokenStream) -> TokenStr
     return retv;
 }
 
+
 #[allow(unused_assignments)]
 #[proc_macro_attribute]
 pub fn rsmemgen_func_inline(_args :TokenStream , input :TokenStream) -> TokenStream {
     let mut fnstruct : syn::ItemFn ;
+    let args :Vec<String> = std::env::args().collect();
+    rsmemgen_log_trace!("args {:?}", args);
 
-    match std::env::var("RSMEMCHK_MODE") {
-        Ok(_v) => {},
-        Err(_e) => {
-            /*we do not set this handle*/
-            rsmemgen_log_trace!("retv\n{}",input.to_string());
-            return input;
-        },
+    if !check_rsmemchk_mode(args) {
+        rsmemgen_log_trace!("retv\n{}",input.to_string());
+        return input;
     }
 
 
